@@ -11,7 +11,7 @@ interface SearchResultsProps {
   query: string
 }
 
-export function SearchResults({ results, isLoading, query }: SearchResultsProps) {
+function SearchResults({ results, isLoading, query }: SearchResultsProps) {
   if (isLoading) {
     return (
       <div className="space-y-4">
@@ -62,3 +62,5 @@ export function SearchResults({ results, isLoading, query }: SearchResultsProps)
     </div>
   )
 }
+
+export default SearchResults
