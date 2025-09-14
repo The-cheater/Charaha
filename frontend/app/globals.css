@@ -1,5 +1,6 @@
 @import url('https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300;400;500;600;700;800&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+/* Tailwind directives */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -84,4 +85,13 @@
 
 .glass-effect {
   @apply backdrop-blur-lg bg-white/10 border border-white/20;
+}
+
+/* Custom image sizes */
+.w-20 {
+    width: 18rem;
+}
+
+.h-20 {
+    height: 14rem;
 }
