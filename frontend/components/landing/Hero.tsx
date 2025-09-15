@@ -1,6 +1,8 @@
 "use client"
 
 import { Button } from '@/components/ui/button'
+import { SplineScene } from '@/components/ui/splite'
+import { Spotlight } from '@/components/ui/spotlight'
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward'
 import PlayArrowIcon from '@mui/icons-material/PlayArrow'
 import { motion } from 'framer-motion'
@@ -19,12 +21,7 @@ export function Hero() {
             transition={{ duration: 0.5 }}
           >
             <div className="flex flex-col items-center justify-center gap-4 md:flex-row md:gap-8 md:justify-center md:items-center">
-              <img
-                src="/avatar.png"
-                alt="Avatar"
-                className="w-20 h-20 object-cover"
-              />
-              <h1 className="font-funnel text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight flex flex-col md:flex-row md:items-center gap-2">
+              <h1 className="font-funnel text-5xl md:text-7xl lg:text-8xl font-bold tracking-tight flex flex-col md:flex-row md:items-center gap-2">
                 Your Team's{' '}
                 <span className="gradient-text">
                   Collective Memory
@@ -37,7 +34,7 @@ export function Hero() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 text-lg md:text-xl text-muted-foreground font-dm-sans max-w-3xl mx-auto"
+            className="mt-6 text-xl md:text-2xl text-muted-foreground font-inter max-w-4xl mx-auto"
           >
             Stop searching through endless Slack messages and Google Docs. 
             TeamMemory creates a unified, searchable knowledge base from all your team's conversations and documents.
@@ -61,25 +58,15 @@ export function Hero() {
             </Button>
           </motion.div>
           
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-16"
-          >
-            <div className="relative mx-auto max-w-4xl">
-              <div className="absolute -inset-4">
-                <div className="h-full w-full bg-gradient-to-r from-blue-600/20 via-purple-600/20 to-indigo-600/20 blur-2xl"></div>
-              </div>
-              <div className="relative rounded-xl border bg-background/80 backdrop-blur-sm p-4">
-                <img
-                  src="/api/placeholder/800/500"
-                  alt="TeamMemory Dashboard"
-                  className="w-full rounded-lg shadow-2xl"
-                />
-              </div>
+          <div className="mt-16 relative">
+            <Spotlight className="-top-40 left-0 md:left-60 md:-top-20" fill="white" />
+            <div className="relative rounded-xl border bg-black/[0.96] p-0 overflow-hidden h-[420px]">
+              <SplineScene 
+                scene="https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode"
+                className="w-full h-full"
+              />
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
     </section>

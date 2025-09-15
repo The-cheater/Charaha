@@ -1,0 +1,84 @@
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:25:17.310Z"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","reason":{"commonWireVersion":0,"compatible":true,"heartbeatFrequencyMS":10000,"localThresholdMS":15,"logicalSessionTimeoutMinutes":null,"maxElectionId":null,"maxSetVersion":null,"servers":{},"setName":null,"stale":false,"type":"Unknown"},"service":"team-memory-backend","stack":"MongooseServerSelectionError: connect ECONNREFUSED ::1:27017\n    at _handleConnectionErrors (D:\\Charaha\\backend\\node_modules\\mongoose\\lib\\connection.js:816:11)\n    at NativeConnection.openUri (D:\\Charaha\\backend\\node_modules\\mongoose\\lib\\connection.js:791:11)\n    at async connectDB (D:\\Charaha\\backend\\src\\config\\mongo.config.js:12:18)","timestamp":"2025-09-15T17:25:27.320Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:25:32.717Z"}
+{"level":"error","message":"MongoDB connection failed: connect ECONNREFUSED ::1:27017","reason":{"commonWireVersion":0,"compatible":true,"heartbeatFrequencyMS":10000,"localThresholdMS":15,"logicalSessionTimeoutMinutes":null,"maxElectionId":null,"maxSetVersion":null,"servers":{},"setName":null,"stale":false,"type":"Unknown"},"service":"team-memory-backend","stack":"MongooseServerSelectionError: connect ECONNREFUSED ::1:27017\n    at _handleConnectionErrors (D:\\Charaha\\backend\\node_modules\\mongoose\\lib\\connection.js:816:11)\n    at NativeConnection.openUri (D:\\Charaha\\backend\\node_modules\\mongoose\\lib\\connection.js:791:11)\n    at async connectDB (D:\\Charaha\\backend\\src\\config\\mongo.config.js:12:18)","timestamp":"2025-09-15T17:25:42.722Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:27:02.492Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:27:02.526Z"}
+{"ip":"::1","level":"info","message":"GET /health","service":"team-memory-backend","timestamp":"2025-09-15T17:28:00.990Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /health - 200 - 6ms","service":"team-memory-backend","timestamp":"2025-09-15T17:28:00.996Z"}
+{"ip":"::1","level":"info","message":"POST /auth/signup","service":"team-memory-backend","timestamp":"2025-09-15T17:29:27.569Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"error","message":"Signup error: Cannot read properties of undefined (reading 'generateToken')","service":"team-memory-backend","stack":"TypeError: Cannot read properties of undefined (reading 'generateToken')\n    at signup (D:\\Charaha\\backend\\src\\controllers\\auth.controller.js:41:26)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)","timestamp":"2025-09-15T17:29:29.114Z"}
+{"level":"error","message":"Cannot read properties of undefined (reading 'generateToken')","service":"team-memory-backend","stack":"TypeError: Cannot read properties of undefined (reading 'generateToken')\n    at signup (D:\\Charaha\\backend\\src\\controllers\\auth.controller.js:41:26)\n    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)","timestamp":"2025-09-15T17:29:29.117Z"}
+{"level":"info","message":"POST /auth/signup - 500 - 1550ms","service":"team-memory-backend","timestamp":"2025-09-15T17:29:29.119Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:33:26.147Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:33:26.167Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:33:29.302Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:33:29.327Z"}
+{"ip":"::1","level":"info","message":"POST /auth/signup","service":"team-memory-backend","timestamp":"2025-09-15T17:33:49.017Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /signup - 400 - 35ms","service":"team-memory-backend","timestamp":"2025-09-15T17:33:49.051Z"}
+{"ip":"::1","level":"info","message":"POST /auth/signup","service":"team-memory-backend","timestamp":"2025-09-15T17:35:57.782Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"New user registered: john.doe@example.com","service":"team-memory-backend","timestamp":"2025-09-15T17:35:58.650Z"}
+{"level":"info","message":"POST /signup - 201 - 869ms","service":"team-memory-backend","timestamp":"2025-09-15T17:35:58.651Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:36:04.462Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 405ms","service":"team-memory-backend","timestamp":"2025-09-15T17:36:04.866Z"}
+{"ip":"::1","level":"info","message":"GET /auth/me","service":"team-memory-backend","timestamp":"2025-09-15T17:36:37.929Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /me - 200 - 9ms","service":"team-memory-backend","timestamp":"2025-09-15T17:36:37.938Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:37:52.391Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 404ms","service":"team-memory-backend","timestamp":"2025-09-15T17:37:52.795Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:39:09.600Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:39:09.632Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:39:31.656Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 459ms","service":"team-memory-backend","timestamp":"2025-09-15T17:39:32.115Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:39:54.145Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:39:54.172Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:41:15.846Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:41:15.879Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:41:25.665Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 452ms","service":"team-memory-backend","timestamp":"2025-09-15T17:41:26.116Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:44:23.928Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:44:23.947Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:44:43.315Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:44:43.344Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:45:18.089Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:45:18.110Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:45:26.473Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:45:26.500Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:45:34.390Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:45:34.414Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:46:15.497Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:46:15.517Z"}
+{"ip":"::1","level":"info","message":"GET /health","service":"team-memory-backend","timestamp":"2025-09-15T17:46:40.432Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /health - 200 - 8ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:40.439Z"}
+{"ip":"::1","level":"info","message":"POST /auth/signup","service":"team-memory-backend","timestamp":"2025-09-15T17:46:40.462Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"New user registered: complete@example.com","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.337Z"}
+{"level":"info","message":"POST /signup - 201 - 876ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.338Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.345Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 430ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.775Z"}
+{"ip":"::1","level":"info","message":"GET /auth/me","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.819Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /me - 401 - 2ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.821Z"}
+{"ip":"::1","level":"info","message":"GET /ingest/sources","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.858Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /sources - 401 - 2ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.860Z"}
+{"ip":"::1","level":"info","message":"GET /query/suggestions?q=test","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.866Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /suggestions?q=test - 401 - 2ms","service":"team-memory-backend","timestamp":"2025-09-15T17:46:41.868Z"}
+{"ip":"::1","level":"info","message":"GET /health","service":"team-memory-backend","timestamp":"2025-09-15T17:47:23.998Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /health - 200 - 4ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.002Z"}
+{"ip":"::1","level":"info","message":"POST /auth/signup","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.020Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /signup - 400 - 17ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.038Z"}
+{"ip":"::1","level":"info","message":"POST /auth/login","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.131Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"POST /login - 401 - 413ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.543Z"}
+{"ip":"::1","level":"info","message":"GET /auth/me","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.560Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /me - 401 - 1ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.561Z"}
+{"ip":"::1","level":"info","message":"GET /ingest/sources","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.583Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /sources - 401 - 2ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.585Z"}
+{"ip":"::1","level":"info","message":"GET /query/suggestions?q=test","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.593Z","userAgent":"Mozilla/5.0 (Windows NT; Windows NT 10.0; en-IN) WindowsPowerShell/5.1.26100.6584"}
+{"level":"info","message":"GET /suggestions?q=test - 401 - 2ms","service":"team-memory-backend","timestamp":"2025-09-15T17:47:24.595Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:48:57.713Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:48:57.733Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:49:49.863Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:49:49.883Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:51:01.485Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:51:01.507Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T17:57:54.917Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T17:57:54.933Z"}
+{"level":"info","message":"🚀 Server running on port 4000 in development mode","service":"team-memory-backend","timestamp":"2025-09-15T18:00:09.647Z"}
+{"level":"info","message":"MongoDB Connected: 127.0.0.1","service":"team-memory-backend","timestamp":"2025-09-15T18:00:09.671Z"}

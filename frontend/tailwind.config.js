@@ -18,7 +18,7 @@ module.exports = {
       extend: {
         fontFamily: {
           'funnel': ['Funnel Display', 'sans-serif'],
-          'dm-sans': ['DM Sans', 'sans-serif'],
+          'inter': ['Inter', 'sans-serif'],
         },
         colors: {
           border: "hsl(var(--border))",

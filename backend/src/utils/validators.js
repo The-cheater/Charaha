@@ -4,8 +4,7 @@ const { validateRequest } = require('../middleware/validation.middleware');
 const validateSignup = [
   body('email')
     .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email'),
+    .withMessage('Please provide a valid email'),  // Removed .normalizeEmail()
   body('password')
     .isLength({ min: 8 })
     .withMessage('Password must be at least 8 characters long')
@@ -21,8 +20,7 @@ const validateSignup = [
 const validateLogin = [
   body('email')
     .isEmail()
-    .normalizeEmail()
-    .withMessage('Please provide a valid email'),
+    .withMessage('Please provide a valid email'),  // Removed .normalizeEmail()
   body('password')
     .notEmpty()
     .withMessage('Password is required'),

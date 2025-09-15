@@ -19,16 +19,13 @@ export function Header() {
           <div className="h-8 w-8 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
             <SearchIcon className="h-5 w-5 text-white" />
           </div>
-          <span className="font-funnel text-xl font-bold gradient-text">
+          <span className="font-funnel text-2xl font-bold gradient-text">
             TeamMemory
           </span>
         </Link>
 
         {/* Desktop Navigation */}
         <nav className="hidden md:flex items-center space-x-6">
-          <Link href="/dashboard" className="text-sm font-medium hover:text-primary transition-colors">
-            Dashboard
-          </Link>
           <Link href="/search" className="text-sm font-medium hover:text-primary transition-colors">
             Search
           </Link>
@@ -73,13 +70,6 @@ export function Header() {
             className="md:hidden border-t bg-background"
           >
             <div className="container py-4 space-y-4">
-              <Link 
-                href="/dashboard" 
-                className="block text-sm font-medium hover:text-primary transition-colors"
-                onClick={() => setIsMenuOpen(false)}
-              >
-                Dashboard
-              </Link>
               <Link 
                 href="/search" 
                 className="block text-sm font-medium hover:text-primary transition-colors"

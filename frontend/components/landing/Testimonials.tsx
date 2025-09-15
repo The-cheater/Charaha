@@ -43,10 +43,10 @@ export function Testimonials() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="font-funnel text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="font-funnel text-4xl md:text-5xl lg:text-6xl font-bold mb-6">
             Trusted by teams worldwide
           </h2>
-          <p className="text-lg text-muted-foreground font-dm-sans max-w-2xl mx-auto">
+          <p className="text-xl md:text-2xl text-muted-foreground font-inter max-w-3xl mx-auto">
             See what our customers have to say about transforming their team's knowledge management.
           </p>
         </motion.div>
@@ -67,7 +67,7 @@ export function Testimonials() {
                       <StarIcon key={i} className="h-5 w-5 text-yellow-400 fill-current" />
                     ))}
                   </div>
-                  <blockquote className="text-muted-foreground font-dm-sans mb-6">
+                  <blockquote className="text-lg md:text-xl text-muted-foreground font-inter mb-6">
                     "{testimonial.content}"
                   </blockquote>
                   <div className="flex items-center space-x-3">
@@ -78,8 +78,8 @@ export function Testimonials() {
                       </AvatarFallback>
                     </Avatar>
                     <div>
-                      <p className="font-medium font-dm-sans">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="font-medium font-inter text-base md:text-lg">{testimonial.name}</p>
+                      <p className="text-sm md:text-base text-muted-foreground">
                         {testimonial.role} at {testimonial.company}
                       </p>
                     </div>

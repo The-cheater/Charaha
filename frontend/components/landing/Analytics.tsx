@@ -44,10 +44,10 @@ export function Analytics() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="font-funnel text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="font-funnel text-4xl md:text-5xl font-bold mb-6">
             Powerful Analytics & Insights
           </h2>
-          <p className="text-lg text-muted-foreground font-dm-sans max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground font-inter max-w-3xl mx-auto">
             Track your team's knowledge usage, search patterns, and productivity improvements with comprehensive analytics.
           </p>
         </motion.div>

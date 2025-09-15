@@ -16,10 +16,10 @@ export function CTA() {
           viewport={{ once: true }}
           className="text-center text-white"
         >
-          <h2 className="font-funnel text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="font-funnel text-4xl md:text-5xl font-bold mb-6">
             Ready to transform your team's knowledge?
           </h2>
-          <p className="text-lg md:text-xl opacity-90 font-dm-sans max-w-2xl mx-auto mb-8">
+          <p className="text-xl md:text-2xl opacity-90 font-inter max-w-2xl mx-auto mb-8">
             Join thousands of teams who have already revolutionized how they find and share information.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

@@ -1,44 +1,22 @@
-const queryService = require('../services/query.service');
-const SearchHistory = require('../models/mongodb/searchHistory.model');
 const logger = require('../utils/logger');
 
 class QueryController {
   async search(req, res, next) {
     try {
-      const startTime = Date.now();
       const { query, topK = 5, filters = {} } = req.body;
       const userId = req.user._id;
 
       logger.info(`Search query: "${query}" by user ${userId}`);
 
-      const results = await queryService.search(query, {
-        topK,
-        filters,
-        userId
-      });
-
-      const responseTime = Date.now() - startTime;
-
-      // Save search history
-      await SearchHistory.create({
-        userId,
-        query,
-        filters,
-        results: results.map((r, index) => ({
-          chunkId: r.chunkId,
-          score: r.score,
-          rank: index + 1
-        })),
-        resultCount: results.length,
-        responseTime
-      });
+      // TODO: Implement actual search when Qdrant is integrated
+      const results = [];
 
       res.status(200).json({
         status: 'success',
         data: {
           query,
           results,
-          responseTime,
+          responseTime: 0,
           metadata: {
             totalResults: results.length,
             topK
@@ -53,7 +31,6 @@ class QueryController {
 
   async advancedSearch(req, res, next) {
     try {
-      const startTime = Date.now();
       const { 
         query, 
         topK = 5, 
@@ -65,36 +42,15 @@ class QueryController {
 
       logger.info(`Advanced search query: "${query}" by user ${userId}`);
 
-      const results = await queryService.advancedSearch(query, {
-        topK,
-        filters,
-        rerank,
-        includeMetadata,
-        userId
-      });
-
-      const responseTime = Date.now() - startTime;
-
-      // Save search history
-      await SearchHistory.create({
-        userId,
-        query,
-        filters,
-        results: results.map((r, index) => ({
-          chunkId: r.chunkId,
-          score: r.score,
-          rank: index + 1
-        })),
-        resultCount: results.length,
-        responseTime
-      });
+      // TODO: Implement advanced search when Qdrant is integrated
+      const results = [];
 
       res.status(200).json({
         status: 'success',
         data: {
           query,
           results,
-          responseTime,
+          responseTime: 0,
           metadata: {
             totalResults: results.length,
             topK,
@@ -113,21 +69,18 @@ class QueryController {
       const userId = req.user._id;
       const { page = 1, limit = 20 } = req.query;
 
-      const history = await SearchHistory.find({ userId })
-        .sort({ createdAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit)
-        .select('query filters resultCount responseTime createdAt')
-        .exec();
+      logger.info(`Get search history for user ${userId}`);
 
-      const total = await SearchHistory.countDocuments({ userId });
+      // TODO: Implement search history when models are ready
+      const history = [];
+      const total = 0;
 
       res.status(200).json({
         status: 'success',
         data: {
           history,
           pagination: {
-            current: page,
+            current: parseInt(page),
             pages: Math.ceil(total / limit),
             total
           }
@@ -144,18 +97,9 @@ class QueryController {
       const { historyId } = req.params;
       const userId = req.user._id;
 
-      const result = await SearchHistory.findOneAndDelete({
-        _id: historyId,
-        userId
-      });
+      logger.info(`Delete search history ${historyId} for user ${userId}`);
 
-      if (!result) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'Search history item not found'
-        });
-      }
-
+      // TODO: Implement when search history model is ready
       res.status(200).json({
         status: 'success',
         message: 'Search history item deleted successfully'
@@ -171,7 +115,15 @@ class QueryController {
       const userId = req.user._id;
       const { q } = req.query;
 
-      const suggestions = await queryService.getSuggestions(q, userId);
+      logger.info(`Get suggestions for "${q}" by user ${userId}`);
+
+      // TODO: Implement suggestions when search history is available
+      const suggestions = [
+        `How to ${q}`,
+        `${q} documentation`,
+        `${q} examples`,
+        `Best practices for ${q}`
+      ].filter(s => q && q.length >= 2);
 
       res.status(200).json({
         status: 'success',

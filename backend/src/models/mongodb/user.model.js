@@ -4,62 +4,80 @@ const bcrypt = require('bcryptjs');
 const userSchema = new mongoose.Schema({
   email: {
     type: String,
-    required: true,
+    required: [true, 'Email is required'],
     unique: true,
     lowercase: true,
-    trim: true
+    trim: true,
+    match: [/^\w+([.-]?\w+)*@\w+([.-]?\w+)*(\.\w{2,3})+$/, 'Please enter a valid email']
   },
   password: {
     type: String,
-    select: false // Don't return password by default
+    required: [true, 'Password is required'],
+    minlength: [8, 'Password must be at least 8 characters long'],
+    select: false  // Important: Hide by default but allow explicit selection
   },
   name: {
     type: String,
-    required: true,
-    trim: true
+    required: [true, 'Name is required'],
+    trim: true,
+    minlength: [2, 'Name must be at least 2 characters long'],
+    maxlength: [50, 'Name cannot exceed 50 characters']
   },
-  roles: [{
-    type: String,
+  roles: {
+    type: [String],
     enum: ['user', 'admin'],
-    default: 'user'
-  }],
-  oauth: {
-    google: {
-      id: String,
-      accessToken: String,
-      refreshToken: String
-    }
+    default: ['user']
+  },
+  avatar: {
+    type: String,
+    default: null
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  lastLogin: {
+    type: Date,
+    default: null
   },
   preferences: {
-    defaultSources: [String],
-    searchHistory: {
+    theme: {
+      type: String,
+      enum: ['light', 'dark', 'system'],
+      default: 'system'
+    },
+    notifications: {
       type: Boolean,
       default: true
     }
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'users'
 });
 
-// Index for efficient queries
-userSchema.index({ email: 1 });
+// CRITICAL: Remove any pre-save password hashing middleware
+// The auth controller should handle password hashing explicitly
 
-// Hash password before saving
-userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
-  
-  try {
-    const salt = await bcrypt.genSalt(12);
-    this.password = await bcrypt.hash(this.password, salt);
-    next();
-  } catch (error) {
-    next(error);
-  }
-});
+// Indexes
+userSchema.index({ email: 1 }, { unique: true });
+userSchema.index({ createdAt: -1 });
 
-// Compare password method
+// Instance method to check password
 userSchema.methods.comparePassword = async function(candidatePassword) {
+  // Make sure password is selected
+  if (!this.password) {
+    const userWithPassword = await mongoose.model('User').findById(this._id).select('+password');
+    this.password = userWithPassword.password;
+  }
   return bcrypt.compare(candidatePassword, this.password);
 };
 
-module.exports = mongoose.model('User', userSchema);
+// Static method to find user with password
+userSchema.statics.findByEmailWithPassword = function(email) {
+  return this.findOne({ email: email.toLowerCase() }).select('+password');
+};
+
+const User = mongoose.model('User', userSchema);
+
+module.exports = User;

@@ -53,11 +53,11 @@ export function Features() {
           viewport={{ once: true }}
           className="text-center mb-16"
         >
-          <h2 className="font-funnel text-3xl md:text-4xl font-bold mb-4">
+          <h2 className="font-funnel text-4xl md:text-5xl font-bold mb-6">
             Everything you need to{' '}
             <span className="gradient-text">unlock your team's knowledge</span>
           </h2>
-          <p className="text-lg text-muted-foreground font-dm-sans max-w-2xl mx-auto">
+          <p className="text-xl text-muted-foreground font-inter max-w-2xl mx-auto">
             Powerful features designed to make your team's collective intelligence accessible, searchable, and actionable.
           </p>
         </motion.div>
@@ -77,10 +77,10 @@ export function Features() {
                   <div className="h-12 w-12 rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center mb-4 group-hover:scale-110 transition-transform duration-300">
                     <feature.icon className="h-6 w-6 text-white" />
                   </div>
-                  <CardTitle className="font-funnel text-xl">{feature.title}</CardTitle>
+                  <CardTitle className="font-funnel text-2xl">{feature.title}</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <CardDescription className="font-dm-sans text-base leading-relaxed">
+                  <CardDescription className="font-inter text-lg leading-relaxed">
                     {feature.description}
                   </CardDescription>
                 </CardContent>

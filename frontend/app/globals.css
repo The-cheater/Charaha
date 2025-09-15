@@ -1,5 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Funnel+Display:wght@300;400;500;600;700;800&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 /* Tailwind directives */
 @tailwind base;
 @tailwind components;
@@ -57,25 +57,25 @@
     @apply border-border;
   }
   body {
-    @apply bg-background text-foreground font-dm-sans text-lg;
+    @apply bg-background text-foreground font-inter text-xl;
   }
   h1 {
-    @apply text-7xl;
+    @apply text-8xl;
   }
   h2 {
-    @apply text-6xl;
+    @apply text-7xl;
   }
   h3 {
-    @apply text-4xl;
+    @apply text-5xl;
   }
   h4 {
-    @apply text-3xl;
+    @apply text-4xl;
   }
   h5 {
-    @apply text-xl;
+    @apply text-2xl;
   }
   h6 {
-    @apply text-lg;
+    @apply text-xl;
   }
 }
 

@@ -39,12 +39,21 @@ app.use(express.urlencoded({ extended: true }));
 // Request logging
 app.use(requestLogger);
 
-// Health check endpoint
+// Health check endpoint (includes Mongo status)
+const mongoose = require('mongoose');
 app.get('/health', (req, res) => {
+  const mongoStates = ['disconnected', 'connected', 'connecting', 'disconnecting'];
+  const mongoState = mongoStates[mongoose.connection.readyState] || 'unknown';
+
   res.status(200).json({
     status: 'OK',
     timestamp: new Date().toISOString(),
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    mongo: {
+      state: mongoState,
+      host: mongoose.connection?.host || null,
+      name: mongoose.connection?.name || null,
+    },
   });
 });
 

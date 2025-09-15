@@ -1,5 +1,3 @@
-const ingestService = require('../services/ingest.service');
-const Source = require('../models/mongodb/source.model');
 const logger = require('../utils/logger');
 
 class IngestController {
@@ -8,19 +6,12 @@ class IngestController {
       const { channel, since, workspace } = req.body;
       const userId = req.user._id;
 
-      logger.info(`Starting Slack ingestion for channel ${channel}`);
+      logger.info(`Slack ingestion request for channel ${channel} by user ${userId}`);
 
-      const result = await ingestService.ingestSlackChannel({
-        channel,
-        since,
-        workspace,
-        userId
-      });
-
-      res.status(200).json({
-        status: 'success',
-        message: 'Slack channel ingestion completed',
-        data: result
+      // TODO: Implement actual Slack ingestion
+      res.status(501).json({
+        status: 'error',
+        message: 'Slack ingestion not implemented yet. Will be available after Qdrant integration.'
       });
     } catch (error) {
       logger.error('Slack ingestion error:', error);
@@ -30,22 +21,15 @@ class IngestController {
 
   async ingestDrive(req, res, next) {
     try {
-      const { fileId, since, folderId } = req.body;
+      const { fileId, folderId, since } = req.body;
       const userId = req.user._id;
 
-      logger.info(`Starting Google Drive ingestion for ${fileId || folderId}`);
+      logger.info(`Drive ingestion request for ${fileId || folderId} by user ${userId}`);
 
-      const result = await ingestService.ingestGoogleDrive({
-        fileId,
-        folderId,
-        since,
-        userId
-      });
-
-      res.status(200).json({
-        status: 'success',
-        message: 'Google Drive ingestion completed',
-        data: result
+      // TODO: Implement actual Drive ingestion
+      res.status(501).json({
+        status: 'error',
+        message: 'Google Drive ingestion not implemented yet. Will be available after Qdrant integration.'
       });
     } catch (error) {
       logger.error('Drive ingestion error:', error);
@@ -58,23 +42,18 @@ class IngestController {
       const userId = req.user._id;
       const { page = 1, limit = 10, type } = req.query;
 
-      const filter = { userId };
-      if (type) filter.type = type;
+      logger.info(`Get sources for user ${userId}`);
 
-      const sources = await Source.find(filter)
-        .sort({ ingestedAt: -1 })
-        .limit(limit * 1)
-        .skip((page - 1) * limit)
-        .exec();
-
-      const total = await Source.countDocuments(filter);
+      // TODO: Implement when Source model is integrated
+      const sources = [];
+      const total = 0;
 
       res.status(200).json({
         status: 'success',
         data: {
           sources,
           pagination: {
-            current: page,
+            current: parseInt(page),
             pages: Math.ceil(total / limit),
             total
           }
@@ -91,18 +70,12 @@ class IngestController {
       const { sourceId } = req.params;
       const userId = req.user._id;
 
-      const source = await Source.findOne({ _id: sourceId, userId });
-      
-      if (!source) {
-        return res.status(404).json({
-          status: 'error',
-          message: 'Source not found'
-        });
-      }
+      logger.info(`Get source status ${sourceId} for user ${userId}`);
 
-      res.status(200).json({
-        status: 'success',
-        data: { source }
+      // TODO: Implement when Source model is ready
+      res.status(404).json({
+        status: 'error',
+        message: 'Source not found or not implemented yet'
       });
     } catch (error) {
       logger.error('Get source status error:', error);
@@ -115,12 +88,12 @@ class IngestController {
       const { sourceId } = req.params;
       const userId = req.user._id;
 
-      const result = await ingestService.deleteSource(sourceId, userId);
+      logger.info(`Delete source ${sourceId} for user ${userId}`);
 
-      res.status(200).json({
-        status: 'success',
-        message: 'Source deleted successfully',
-        data: result
+      // TODO: Implement when Source model is ready
+      res.status(501).json({
+        status: 'error',
+        message: 'Source deletion not implemented yet'
       });
     } catch (error) {
       logger.error('Delete source error:', error);
@@ -133,30 +106,11 @@ class IngestController {
       const { channels, since, workspace } = req.body;
       const userId = req.user._id;
 
-      logger.info(`Starting bulk Slack ingestion for ${channels.length} channels`);
+      logger.info(`Bulk Slack ingestion for ${channels?.length} channels by user ${userId}`);
 
-      const results = await Promise.allSettled(
-        channels.map(channel => 
-          ingestService.ingestSlackChannel({ channel, since, workspace, userId })
-        )
-      );
-
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-
-      res.status(200).json({
-        status: 'success',
-        message: `Bulk ingestion completed: ${successful} successful, ${failed} failed`,
-        data: {
-          successful,
-          failed,
-          results: results.map((r, i) => ({
-            channel: channels[i],
-            status: r.status,
-            data: r.status === 'fulfilled' ? r.value : null,
-            error: r.status === 'rejected' ? r.reason.message : null
-          }))
-        }
+      res.status(501).json({
+        status: 'error',
+        message: 'Bulk Slack ingestion not implemented yet'
       });
     } catch (error) {
       logger.error('Bulk Slack ingestion error:', error);
@@ -169,37 +123,11 @@ class IngestController {
       const { fileIds, folderId, since } = req.body;
       const userId = req.user._id;
 
-      logger.info(`Starting bulk Drive ingestion for ${fileIds?.length || 1} items`);
+      logger.info(`Bulk Drive ingestion by user ${userId}`);
 
-      let items = fileIds || [];
-      if (folderId && !fileIds) {
-        // Get all files in folder
-        const folderFiles = await googleService.getFilesInFolder(folderId);
-        items = folderFiles.map(f => f.id);
-      }
-
-      const results = await Promise.allSettled(
-        items.map(fileId => 
-          ingestService.ingestGoogleDrive({ fileId, since, userId })
-        )
-      );
-
-      const successful = results.filter(r => r.status === 'fulfilled').length;
-      const failed = results.filter(r => r.status === 'rejected').length;
-
-      res.status(200).json({
-        status: 'success',
-        message: `Bulk ingestion completed: ${successful} successful, ${failed} failed`,
-        data: {
-          successful,
-          failed,
-          results: results.map((r, i) => ({
-            fileId: items[i],
-            status: r.status,
-            data: r.status === 'fulfilled' ? r.value : null,
-            error: r.status === 'rejected' ? r.reason.message : null
-          }))
-        }
+      res.status(501).json({
+        status: 'error',
+        message: 'Bulk Drive ingestion not implemented yet'
       });
     } catch (error) {
       logger.error('Bulk Drive ingestion error:', error);
