@@ -1,139 +1,276 @@
-const logger = require('../utils/logger');
+const slackService = require('../services/slack.service');
+const GoogleDriveService = require('../services/google-drive.service');
+const VectorService = require('../services/vector.service');
 
 class IngestController {
-  async ingestSlack(req, res, next) {
-    try {
-      const { channel, since, workspace } = req.body;
-      const userId = req.user._id;
-
-      logger.info(`Slack ingestion request for channel ${channel} by user ${userId}`);
-
-      // TODO: Implement actual Slack ingestion
-      res.status(501).json({
-        status: 'error',
-        message: 'Slack ingestion not implemented yet. Will be available after Qdrant integration.'
-      });
-    } catch (error) {
-      logger.error('Slack ingestion error:', error);
-      next(error);
-    }
+  constructor() {
+    this.slackService = slackService; // Use imported instance
+    this.googleDriveService = new GoogleDriveService();
+    this.vectorService = new VectorService();
   }
 
-  async ingestDrive(req, res, next) {
+  /**
+   * Ingest Slack messages
+   */
+  ingestSlackMessages = async (req, res) => {
     try {
-      const { fileId, folderId, since } = req.body;
-      const userId = req.user._id;
+      const { channelId, limit = 100 } = req.body;
 
-      logger.info(`Drive ingestion request for ${fileId || folderId} by user ${userId}`);
+      if (!channelId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Channel ID is required'
+        });
+      }
 
-      // TODO: Implement actual Drive ingestion
-      res.status(501).json({
-        status: 'error',
-        message: 'Google Drive ingestion not implemented yet. Will be available after Qdrant integration.'
-      });
-    } catch (error) {
-      logger.error('Drive ingestion error:', error);
-      next(error);
-    }
-  }
+      const messages = await this.slackService.getChannelMessages(channelId, limit);
+      
+      const results = {
+        processed: 0,
+        stored: 0,
+        failed: 0,
+        errors: []
+      };
 
-  async getSources(req, res, next) {
-    try {
-      const userId = req.user._id;
-      const { page = 1, limit = 10, type } = req.query;
+      for (const message of messages) {
+        try {
+          results.processed++;
 
-      logger.info(`Get sources for user ${userId}`);
-
-      // TODO: Implement when Source model is integrated
-      const sources = [];
-      const total = 0;
-
-      res.status(200).json({
-        status: 'success',
-        data: {
-          sources,
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil(total / limit),
-            total
+          if (!message.text || message.text.trim().length === 0) {
+            continue;
           }
+
+          // Process and store message
+          const processedContent = documentProcessor.processText(message.text);
+          
+          await this.vectorService.storeVector(message.ts, processedContent, {
+            source: 'slack',
+            channelId: message.channel,
+            userId: message.user,
+            timestamp: message.ts,
+            messageType: message.type || 'message',
+            threadTs: message.thread_ts,
+            originalText: message.text
+          });
+
+          results.stored++;
+
+        } catch (error) {
+          results.failed++;
+          results.errors.push(`Message ${message.ts}: ${error.message}`);
+          logger.error(`Failed to process message ${message.ts}:`, error);
         }
+      }
+
+      res.json({
+        status: 'success',
+        data: results
       });
+
     } catch (error) {
-      logger.error('Get sources error:', error);
-      next(error);
-    }
-  }
-
-  async getSourceStatus(req, res, next) {
-    try {
-      const { sourceId } = req.params;
-      const userId = req.user._id;
-
-      logger.info(`Get source status ${sourceId} for user ${userId}`);
-
-      // TODO: Implement when Source model is ready
-      res.status(404).json({
+      logger.error('Slack ingestion failed:', error);
+      res.status(500).json({
         status: 'error',
-        message: 'Source not found or not implemented yet'
+        message: error.message
       });
-    } catch (error) {
-      logger.error('Get source status error:', error);
-      next(error);
     }
-  }
+  };
 
-  async deleteSource(req, res, next) {
+  /**
+   * Ingest Google Drive documents
+   */
+  ingestGoogleDrive = async (req, res) => {
     try {
-      const { sourceId } = req.params;
-      const userId = req.user._id;
+      const { fileIds, folderId, recursive = false } = req.body;
 
-      logger.info(`Delete source ${sourceId} for user ${userId}`);
+      let filesToProcess = [];
 
-      // TODO: Implement when Source model is ready
-      res.status(501).json({
-        status: 'error',
-        message: 'Source deletion not implemented yet'
+      if (fileIds && Array.isArray(fileIds)) {
+        // Process specific files
+        filesToProcess = fileIds.map(id => ({ id }));
+      } else if (folderId) {
+        // Process files from folder
+        const searchResult = await this.googleDriveService.searchFiles('', folderId);
+        filesToProcess = searchResult.files || [];
+      } else {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Either fileIds array or folderId is required'
+        });
+      }
+
+      const results = {
+        processed: 0,
+        stored: 0,
+        failed: 0,
+        errors: []
+      };
+
+      for (const file of filesToProcess) {
+        try {
+          results.processed++;
+
+          // Get file metadata if not provided
+          const fileInfo = file.name ? file : await this.googleDriveService.getFileInfo(file.id);
+          
+          // Extract text content
+          const textContent = await this.googleDriveService.extractTextContent(fileInfo.id, fileInfo.mimeType);
+          
+          if (!textContent || textContent.trim().length === 0) {
+            results.failed++;
+            results.errors.push(`No text content found in file: ${fileInfo.name}`);
+            continue;
+          }
+
+          // Process and store document
+          const processedContent = documentProcessor.processText(textContent);
+          
+          await this.vectorService.storeVector(fileInfo.id, processedContent, {
+            source: 'google-drive',
+            fileId: fileInfo.id,
+            fileName: fileInfo.name,
+            mimeType: fileInfo.mimeType,
+            size: fileInfo.size,
+            createdTime: fileInfo.createdTime,
+            modifiedTime: fileInfo.modifiedTime,
+            webViewLink: fileInfo.webViewLink,
+            owners: fileInfo.owners || [],
+            parents: fileInfo.parents || [],
+            originalLength: textContent.length
+          });
+
+          results.stored++;
+          logger.info(`Successfully ingested Google Drive file: ${fileInfo.name}`);
+
+        } catch (fileError) {
+          results.failed++;
+          results.errors.push(`Failed to process file ${file.id}: ${fileError.message}`);
+          logger.error(`Failed to ingest file ${file.id}:`, fileError);
+        }
+      }
+
+      res.json({
+        status: 'success',
+        data: results
       });
-    } catch (error) {
-      logger.error('Delete source error:', error);
-      next(error);
-    }
-  }
 
-  async bulkIngestSlack(req, res, next) {
+    } catch (error) {
+      logger.error('Google Drive ingestion failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  };
+
+  /**
+   * Bulk ingest from Google Drive folder
+   */
+  bulkIngestGoogleDrive = async (req, res) => {
     try {
-      const { channels, since, workspace } = req.body;
-      const userId = req.user._id;
+      const { folderId, recursive = false, fileTypes = [] } = req.body;
 
-      logger.info(`Bulk Slack ingestion for ${channels?.length} channels by user ${userId}`);
+      if (!folderId) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Folder ID is required for bulk ingestion'
+        });
+      }
 
-      res.status(501).json({
-        status: 'error',
-        message: 'Bulk Slack ingestion not implemented yet'
+      // Get all files from folder
+      const allFiles = await this.googleDriveService.getAllFilesFromFolder(folderId, recursive);
+      
+      // Filter by file types if specified
+      const filesToProcess = fileTypes.length > 0 
+        ? allFiles.filter(file => fileTypes.includes(file.mimeType))
+        : allFiles;
+
+      const results = {
+        totalFiles: filesToProcess.length,
+        processed: 0,
+        stored: 0,
+        failed: 0,
+        errors: []
+      };
+
+      // Process in batches
+      const batchSize = 5;
+      for (let i = 0; i < filesToProcess.length; i += batchSize) {
+        const batch = filesToProcess.slice(i, i + batchSize);
+        
+        await Promise.all(batch.map(async (file) => {
+          try {
+            results.processed++;
+
+            const textContent = await this.googleDriveService.extractTextContent(file.id, file.mimeType);
+            
+            if (!textContent || textContent.trim().length === 0) {
+              results.failed++;
+              results.errors.push(`No text content: ${file.name}`);
+              return;
+            }
+
+            const processedContent = documentProcessor.processText(textContent);
+            
+            await this.vectorService.storeVector(file.id, processedContent, {
+              source: 'google-drive',
+              fileId: file.id,
+              fileName: file.name,
+              mimeType: file.mimeType,
+              size: file.size,
+              createdTime: file.createdTime,
+              modifiedTime: file.modifiedTime,
+              webViewLink: file.webViewLink,
+              owners: file.owners || [],
+              parents: file.parents || [],
+              originalLength: textContent.length,
+              ingestedAt: new Date().toISOString()
+            });
+
+            results.stored++;
+
+          } catch (error) {
+            results.failed++;
+            results.errors.push(`${file.name}: ${error.message}`);
+            logger.error(`Batch processing failed for ${file.id}:`, error);
+          }
+        }));
+      }
+
+      res.json({
+        status: 'success',
+        data: results
       });
-    } catch (error) {
-      logger.error('Bulk Slack ingestion error:', error);
-      next(error);
-    }
-  }
 
-  async bulkIngestDrive(req, res, next) {
+    } catch (error) {
+      logger.error('Bulk Google Drive ingestion failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
+    }
+  };
+
+  /**
+   * Get ingestion status/stats
+   */
+  getIngestionStats = async (req, res) => {
     try {
-      const { fileIds, folderId, since } = req.body;
-      const userId = req.user._id;
-
-      logger.info(`Bulk Drive ingestion by user ${userId}`);
-
-      res.status(501).json({
-        status: 'error',
-        message: 'Bulk Drive ingestion not implemented yet'
+      const stats = await this.vectorService.getCollectionStats();
+      
+      res.json({
+        status: 'success',
+        data: stats
       });
+
     } catch (error) {
-      logger.error('Bulk Drive ingestion error:', error);
-      next(error);
+      logger.error('Get ingestion stats failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
     }
-  }
+  };
 }
 
 module.exports = new IngestController();

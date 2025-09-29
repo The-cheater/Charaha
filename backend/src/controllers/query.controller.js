@@ -1,139 +1,129 @@
+const VectorService = require('../services/vector.service');
 const logger = require('../utils/logger');
 
 class QueryController {
-  async search(req, res, next) {
-    try {
-      const { query, topK = 5, filters = {} } = req.body;
-      const userId = req.user._id;
-
-      logger.info(`Search query: "${query}" by user ${userId}`);
-
-      // TODO: Implement actual search when Qdrant is integrated
-      const results = [];
-
-      res.status(200).json({
-        status: 'success',
-        data: {
-          query,
-          results,
-          responseTime: 0,
-          metadata: {
-            totalResults: results.length,
-            topK
-          }
-        }
-      });
-    } catch (error) {
-      logger.error('Search error:', error);
-      next(error);
-    }
+  constructor() {
+    this.vectorService = new VectorService();
   }
 
-  async advancedSearch(req, res, next) {
+  /**
+   * Combined search across all sources (Slack + Google Drive)
+   */
+  search = async (req, res) => {
     try {
-      const { 
-        query, 
-        topK = 5, 
-        filters = {}, 
-        rerank = false,
-        includeMetadata = true 
-      } = req.body;
-      const userId = req.user._id;
+      const { query, topK = 10, source = 'all', minScore = 0.7 } = req.body;
 
-      logger.info(`Advanced search query: "${query}" by user ${userId}`);
+      if (!query || query.trim() === '') {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Query is required'
+        });
+      }
 
-      // TODO: Implement advanced search when Qdrant is integrated
-      const results = [];
+      // Perform vector search with source filtering
+      const results = await this.vectorService.searchSimilar(query, topK, {
+        minScore,
+        source: source === 'all' ? undefined : source
+      });
 
-      res.status(200).json({
+      // Group results by source
+      const groupedResults = results.reduce((acc, result) => {
+        const src = result.metadata?.source || 'unknown';
+        if (!acc[src]) acc[src] = [];
+        acc[src].push(result);
+        return acc;
+      }, {});
+
+      // Calculate source counts
+      const sourceCounts = Object.keys(groupedResults).reduce((acc, src) => {
+        acc[src] = groupedResults[src].length;
+        return acc;
+      }, {});
+
+      res.json({
         status: 'success',
         data: {
           query,
-          results,
-          responseTime: 0,
-          metadata: {
-            totalResults: results.length,
+          totalResults: results.length,
+          sources: sourceCounts,
+          results: results,
+          groupedResults,
+          searchParams: {
             topK,
-            reranked: rerank
+            source,
+            minScore
           }
         }
       });
+
     } catch (error) {
-      logger.error('Advanced search error:', error);
-      next(error);
+      logger.error('Search failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
     }
-  }
+  };
 
-  async getSearchHistory(req, res, next) {
+  /**
+   * Source-specific search
+   */
+  searchBySource = async (req, res) => {
     try {
-      const userId = req.user._id;
-      const { page = 1, limit = 20 } = req.query;
+      const { source } = req.params;
+      const { query, topK = 10, minScore = 0.7 } = req.body;
 
-      logger.info(`Get search history for user ${userId}`);
+      if (!['slack', 'google-drive'].includes(source)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid source. Must be slack or google-drive'
+        });
+      }
 
-      // TODO: Implement search history when models are ready
-      const history = [];
-      const total = 0;
+      const results = await this.vectorService.searchSimilar(query, topK, {
+        source,
+        minScore
+      });
 
-      res.status(200).json({
+      res.json({
         status: 'success',
         data: {
-          history,
-          pagination: {
-            current: parseInt(page),
-            pages: Math.ceil(total / limit),
-            total
-          }
+          query,
+          source,
+          totalResults: results.length,
+          results
         }
       });
+
     } catch (error) {
-      logger.error('Get search history error:', error);
-      next(error);
-    }
-  }
-
-  async deleteSearchHistory(req, res, next) {
-    try {
-      const { historyId } = req.params;
-      const userId = req.user._id;
-
-      logger.info(`Delete search history ${historyId} for user ${userId}`);
-
-      // TODO: Implement when search history model is ready
-      res.status(200).json({
-        status: 'success',
-        message: 'Search history item deleted successfully'
+      logger.error(`Search by source ${source} failed:`, error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
       });
-    } catch (error) {
-      logger.error('Delete search history error:', error);
-      next(error);
     }
-  }
+  };
 
-  async getSuggestions(req, res, next) {
+  /**
+   * Get search statistics
+   */
+  getStats = async (req, res) => {
     try {
-      const userId = req.user._id;
-      const { q } = req.query;
-
-      logger.info(`Get suggestions for "${q}" by user ${userId}`);
-
-      // TODO: Implement suggestions when search history is available
-      const suggestions = [
-        `How to ${q}`,
-        `${q} documentation`,
-        `${q} examples`,
-        `Best practices for ${q}`
-      ].filter(s => q && q.length >= 2);
-
-      res.status(200).json({
+      const stats = await this.vectorService.getCollectionStats();
+      
+      res.json({
         status: 'success',
-        data: { suggestions }
+        data: stats
       });
+
     } catch (error) {
-      logger.error('Get suggestions error:', error);
-      next(error);
+      logger.error('Get stats failed:', error);
+      res.status(500).json({
+        status: 'error',
+        message: error.message
+      });
     }
-  }
+  };
 }
 
 module.exports = new QueryController();

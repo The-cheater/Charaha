@@ -139,6 +139,135 @@ backend/
 ```
 
 
+## Frontend Project Structure
+
+```
+frontend/
+├── app/
+│   ├── layout.tsx                  # Main layout component
+│   ├── layout_old.tsx              # Legacy layout (optional)
+│   ├── globals.css                 # Global styles (Tailwind)
+│   ├── page.tsx                    # Landing page
+│   ├── login/
+│   │   └── page.tsx                # Login page
+│   ├── signup/
+│   │   └── page.tsx                # Signup page
+│   ├── dashboard/
+│   │   └── page.tsx                # User dashboard
+│   ├── profile/
+│   │   └── page.tsx                # User profile
+│   ├── search/
+│   │   ├── page.tsx                # Search main page
+│   │   ├── advanced/
+│   │   │   └── page.tsx            # Advanced search page
+│   │   └── history/
+│   │       └── page.tsx            # Search history page
+│   ├── settings/
+│   │   └── page.tsx                # User settings
+│   ├── sources/
+│   │   ├── page.tsx                # Sources overview
+│   │   ├── add/
+│   │   │   ├── google/
+│   │   │   │   └── page.tsx        # Add Google source
+│   │   │   └── slack/
+│   │   │       └── page.tsx        # Add Slack source
+│   │   ├── slack/
+│   │   │   └── page.tsx            # Slack source details
+│   │   └── [id]/
+│   │       ├── page.tsx            # Source details
+│   │       └── settings/
+│   │           └── page.tsx        # Source settings
+│   ├── analytics/
+│   │   └── page.tsx                # Analytics dashboard
+│   └── test-auth/
+│       └── page.tsx                # Auth test page
+│
+├── components/
+│   ├── layout/
+│   │   ├── Header.tsx              # App header
+│   │   ├── Sidebar.tsx             # Sidebar navigation
+│   │   ├── Footer.tsx              # App footer
+│   │   └── ThemeToggle.tsx         # Light/dark mode toggle
+│   ├── auth/
+│   │   ├── LoginForm.tsx           # Login form
+│   │   └── SignupForm.tsx          # Signup form
+│   ├── dashboard/
+│   │   ├── QuickActions.tsx        # Dashboard quick actions
+│   │   ├── RecentActivity.tsx      # Recent activity feed
+│   │   └── StatsCards.tsx          # Dashboard stats
+│   ├── ingestion/
+│   │   ├── GoogleDriveConnector.tsx# Google Drive connector
+│   │   ├── SlackConnector.tsx      # Slack connector
+│   │   ├── IngestionStatus.tsx     # Ingestion status display
+│   │   └── SourceCard.tsx          # Data source card
+│   ├── search/
+│   │   ├── SearchInput.tsx         # Search bar
+│   │   ├── SearchResults.tsx       # Search results list
+│   │   ├── ResultCard.tsx          # Individual result card
+│   │   ├── SearchStats.tsx         # Search statistics
+│   │   ├── SearchSuggestions.tsx   # Query suggestions
+│   │   ├── SearchHistory.tsx       # Search history
+│   │   ├── AdvancedFilters.tsx     # Advanced search filters
+│   │   └── FilterPanel.tsx         # Filter panel
+│   ├── analytics/
+│   │   ├── SearchStats.tsx         # Analytics search stats
+│   │   ├── SourceStats.tsx         # Source analytics
+│   │   └── SearchStats_old.tsx     # Legacy analytics
+│   ├── landing/
+│   │   ├── Hero.tsx                # Landing hero section
+│   │   ├── Features.tsx            # Feature highlights
+│   │   ├── Analytics.tsx           # Landing analytics
+│   │   ├── Testimonials.tsx        # User testimonials
+│   │   └── CTA.tsx                 # Call to action
+│   ├── providers/
+│   │   └── theme-provider.tsx      # Theme context provider
+│   ├── ui/
+│   │   ├── button.tsx              # UI button
+│   │   ├── card.tsx                # UI card
+│   │   ├── input.tsx               # UI input
+│   │   ├── label.tsx               # UI label
+│   │   ├── select.tsx              # UI select
+│   │   ├── switch.tsx              # UI switch
+│   │   ├── tabs.tsx                # UI tabs
+│   │   ├── badge.tsx               # UI badge
+│   │   ├── avatar.tsx              # UI avatar
+│   │   ├── splite.tsx              # UI split element
+│   │   ├── spotlight.tsx           # Spotlight effect
+│   │   ├── ResultCard.tsx          # UI result card
+│   │   └── text-hover-effect.tsx   # Text hover effect
+│   └── ConnectionStatus.tsx        # API connection status
+│
+├── hooks/
+│   ├── useAuth.ts                  # Auth hook (TS)
+│   ├── useAuth.tsx                 # Auth hook (TSX)
+│   ├── useChat.ts                  # Chat state hook
+│   └── useSearch.ts                # Search state hook
+│
+├── lib/
+│   ├── api.ts                      # API utilities
+│   ├── utils.ts                    # General utilities
+│   └── validations.ts              # Validation helpers
+│
+├── types/
+│   └── index.ts                    # TypeScript types
+│
+├── public/
+│   ├── anal.png                    # Analytics image
+│   ├── icon.ico                    # Favicon
+│   └── Screenshot 2025-09-15 234442.png # Landing screenshot
+│
+├── components.json                 # Component registry
+├── next.config.js                  # Next.js config
+├── postcss.config.js               # PostCSS config
+├── tailwind.config.js              # Tailwind CSS config
+├── tsconfig.json                   # TypeScript config
+├── next-env.d.ts                   # Next.js env types
+├── package.json                    # Dependencies & scripts
+├── package-lock.json               # Lockfile
+└── node_modules/                   # Dependencies
+```
+
+
 ***
 
 ## Core Application Files

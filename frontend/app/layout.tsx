@@ -1,37 +1,28 @@
-import './globals.css'
-import type { Metadata } from 'next'
-import { ThemeProvider } from '@/components/providers/theme-provider'
-import { Header } from '@/components/layout/Header'
-import { Footer } from '@/components/layout/Footer'
+// app/layout.tsx
+import type { Metadata } from 'next';
+import { Inter } from 'next/font/google';
+import './globals.css';
+import { AuthProvider } from '@/hooks/useAuth';
+
+const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'TeamMemory - Searchable Knowledge for Teams',
-  description: 'A unified knowledge search system for your team\'s collective memory',
-}
+  title: 'Charaha',
+  description: 'AI-powered search and analytics platform',
+};
 
 export default function RootLayout({
   children,
 }: {
-  children: React.ReactNode
+  children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body>
-        <ThemeProvider
-          attribute="class"
-          defaultTheme="system"
-          enableSystem
-          disableTransitionOnChange
-        >
-          <div className="min-h-screen flex flex-col">
-            <Header />
-            <main className="flex-1">
-              {children}
-            </main>
-            <Footer />
-          </div>
-        </ThemeProvider>
+    <html lang="en">
+      <body className={inter.className}>
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
-  )
+  );
 }

@@ -1,84 +1,87 @@
-const { body, query, param } = require('express-validator');
-const { validateRequest } = require('../middleware/validation.middleware');
+const { body, validationResult } = require('express-validator');
 
-const validateSignup = [
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email'),  // Removed .normalizeEmail()
-  body('password')
-    .isLength({ min: 8 })
-    .withMessage('Password must be at least 8 characters long')
-    .matches(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
-    .withMessage('Password must contain at least one lowercase, uppercase, and numeric character'),
-  body('name')
-    .trim()
-    .isLength({ min: 2, max: 50 })
-    .withMessage('Name must be between 2 and 50 characters'),
-  validateRequest
-];
+const handleValidationErrors = (req, res, next) => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({
+      status: 'error',
+      message: 'Validation failed',
+      errors: errors.array()
+    });
+  }
+  next();
+};
 
-const validateLogin = [
-  body('email')
-    .isEmail()
-    .withMessage('Please provide a valid email'),  // Removed .normalizeEmail()
-  body('password')
+const validateIngestRequest = [
+  body('channelId')
     .notEmpty()
-    .withMessage('Password is required'),
-  validateRequest
+    .withMessage('Channel ID is required'),
+  body('limit')
+    .optional()
+    .isInt({ min: 1, max: 1000 })
+    .withMessage('Limit must be between 1 and 1000'),
+  handleValidationErrors
 ];
 
-const validateQuery = [
-  body('query')
-    .trim()
-    .isLength({ min: 1, max: 500 })
-    .withMessage('Query must be between 1 and 500 characters'),
-  body('topK')
+const validateGoogleDriveIngest = [
+  body()
+    .custom((value) => {
+      const { fileIds, folderId } = value;
+      if (!fileIds && !folderId) {
+        throw new Error('Either fileIds array or folderId is required');
+      }
+      if (fileIds && !Array.isArray(fileIds)) {
+        throw new Error('fileIds must be an array');
+      }
+      return true;
+    }),
+  body('fileIds')
     .optional()
-    .isInt({ min: 1, max: 20 })
-    .withMessage('topK must be between 1 and 20'),
-  body('filters')
+    .isArray()
+    .withMessage('fileIds must be an array'),
+  body('fileIds.*')
     .optional()
-    .isObject()
-    .withMessage('Filters must be an object'),
-  validateRequest
-];
-
-const validateSlackIngest = [
-  body('channel')
-    .matches(/^[C][A-Z0-9]{8,}$/)
-    .withMessage('Invalid Slack channel ID format'),
-  body('since')
-    .optional()
-    .isISO8601()
-    .withMessage('Since must be a valid ISO date'),
-  body('workspace')
-    .optional()
-    .trim()
-    .isLength({ min: 1, max: 100 })
-    .withMessage('Workspace name must be between 1 and 100 characters'),
-  validateRequest
-];
-
-const validateDriveIngest = [
-  body('fileId')
-    .optional()
-    .matches(/^[a-zA-Z0-9-_]{25,}$/)
-    .withMessage('Invalid Google Drive file ID format'),
+    .isString()
+    .withMessage('Each fileId must be a string'),
   body('folderId')
     .optional()
-    .matches(/^[a-zA-Z0-9-_]{25,}$/)
-    .withMessage('Invalid Google Drive folder ID format'),
-  body('since')
+    .isString()
+    .withMessage('folderId must be a string'),
+  body('recursive')
     .optional()
-    .isISO8601()
-    .withMessage('Since must be a valid ISO date'),
-  validateRequest
+    .isBoolean()
+    .withMessage('recursive must be a boolean'),
+  body('fileTypes')
+    .optional()
+    .isArray()
+    .withMessage('fileTypes must be an array'),
+  handleValidationErrors
+];
+
+const validateQueryRequest = [
+  body('query')
+    .notEmpty()
+    .isString()
+    .isLength({ min: 1, max: 1000 })
+    .withMessage('Query is required and must be between 1-1000 characters'),
+  body('topK')
+    .optional()
+    .isInt({ min: 1, max: 100 })
+    .withMessage('topK must be between 1 and 100'),
+  body('source')
+    .optional()
+    .isIn(['all', 'slack', 'google-drive'])
+    .withMessage('source must be all, slack, or google-drive'),
+  body('minScore')
+    .optional()
+    .isFloat({ min: 0, max: 1 })
+    .withMessage('minScore must be between 0 and 1'),
+  handleValidationErrors
 ];
 
 module.exports = {
-  validateSignup,
-  validateLogin,
-  validateQuery,
-  validateSlackIngest,
-  validateDriveIngest
+  validateIngestRequest,
+  validateGoogleDriveIngest,
+  validateQueryRequest,
+  handleValidationErrors
 };

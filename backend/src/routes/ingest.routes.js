@@ -1,23 +1,23 @@
 const express = require('express');
-const router = express.Router();
 const ingestController = require('../controllers/ingest.controller');
-const authController = require('../controllers/auth.controller');
-const { validateSlackIngest, validateDriveIngest } = require('../utils/validators');
+const { authenticate } = require('../middleware/auth.middleware');
+const { validateIngestRequest, validateGoogleDriveIngest } = require('../utils/validators');
 
-// All ingestion routes require authentication
-router.use(authController.authenticate);
+const router = express.Router();
 
-// Manual ingestion endpoints
-router.post('/slack', validateSlackIngest, ingestController.ingestSlack);
-router.post('/drive', validateDriveIngest, ingestController.ingestDrive);
+// All routes require authentication
+router.use(authenticate);
 
-// Ingestion status and management
-router.get('/sources', ingestController.getSources);
-router.get('/sources/:sourceId/status', ingestController.getSourceStatus);
-router.delete('/sources/:sourceId', ingestController.deleteSource);
+// Slack ingestion
+router.post('/slack', validateIngestRequest, ingestController.ingestSlackMessages);
 
-// Bulk operations
-router.post('/bulk/slack', ingestController.bulkIngestSlack);
-router.post('/bulk/drive', ingestController.bulkIngestDrive);
+// Google Drive ingestion
+router.post('/google-drive', validateGoogleDriveIngest, ingestController.ingestGoogleDrive);
+
+// Bulk Google Drive ingestion
+router.post('/google-drive/bulk', validateGoogleDriveIngest, ingestController.bulkIngestGoogleDrive);
+
+// Get ingestion statistics
+router.get('/stats', ingestController.getIngestionStats);
 
 module.exports = router;

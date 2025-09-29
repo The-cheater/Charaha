@@ -1,23 +1,20 @@
 const express = require('express');
-const router = express.Router();
 const queryController = require('../controllers/query.controller');
-const authController = require('../controllers/auth.controller');
-const { validateQuery } = require('../utils/validators');
+const { authenticate } = require('../middleware/auth.middleware');
+const { validateQueryRequest } = require('../utils/validators');
 
-// All query routes require authentication
-router.use(authController.authenticate);
+const router = express.Router();
 
-// Main search endpoint
-router.post('/', validateQuery, queryController.search);
+// All routes require authentication
+router.use(authenticate);
 
-// Advanced search with filters
-router.post('/advanced', validateQuery, queryController.advancedSearch);
+// Main search endpoint - FIXED IMPORT
+router.post('/', validateQueryRequest, queryController.search);
 
-// Search history
-router.get('/history', queryController.getSearchHistory);
-router.delete('/history/:historyId', queryController.deleteSearchHistory);
+// Source-specific search
+router.post('/:source', validateQueryRequest, queryController.searchBySource);
 
-// Search suggestions
-router.get('/suggestions', queryController.getSuggestions);
+// Search statistics
+router.get('/stats', queryController.getStats);
 
 module.exports = router;

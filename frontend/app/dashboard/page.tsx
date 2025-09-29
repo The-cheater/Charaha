@@ -3,11 +3,19 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import Link from 'next/link'
+import { useState, useEffect } from 'react'
+import { api } from '@/lib/api'
+
 import SearchIcon from '@mui/icons-material/Search'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import GroupIcon from '@mui/icons-material/Group'
 import SpeedIcon from '@mui/icons-material/Speed'
 import AddIcon from '@mui/icons-material/Add'
+import StorageIcon from '@mui/icons-material/Storage'
+import AnalyticsIcon from '@mui/icons-material/Analytics'
+import HistoryIcon from '@mui/icons-material/History'
+
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts'
 
 const searchData = [
@@ -20,143 +28,291 @@ const searchData = [
   { day: 'Sun', searches: 28 },
 ]
 
-const recentActivity = [
-  { user: 'Alice Johnson', action: 'searched for "API documentation"', time: '2 minutes ago' },
-  { user: 'Bob Smith', action: 'found result in Slack #engineering', time: '5 minutes ago' },
-  { user: 'Carol Davis', action: 'bookmarked "Meeting notes Q4"', time: '12 minutes ago' },
-  { user: 'David Wilson', action: 'searched for "deployment process"', time: '18 minutes ago' },
+const quickActions = [
+  {
+    title: 'Quick Search',
+    description: 'Search across all your data sources',
+    icon: SearchIcon,
+    href: '/search',
+    color: 'bg-blue-500'
+  },
+  {
+    title: 'Add Data Source',
+    description: 'Connect Slack, Google Drive, or other sources',
+    icon: AddIcon,
+    href: '/sources/add/slack',
+    color: 'bg-green-500'
+  },
+  {
+    title: 'View Analytics',
+    description: 'See search patterns and usage stats',
+    icon: AnalyticsIcon,
+    href: '/analytics',
+    color: 'bg-purple-500'
+  },
+  {
+    title: 'Browse Sources',
+    description: 'Manage your connected data sources',
+    icon: StorageIcon,
+    href: '/sources',
+    color: 'bg-orange-500'
+  }
 ]
 
 export default function DashboardPage() {
+  const [stats, setStats] = useState({
+    totalSearches: 1247,
+    avgResponseTime: 320,
+    activeSources: 8,
+    totalDocuments: 5649
+  })
+  const [recentActivity, setRecentActivity] = useState([
+    { user: 'Alice Johnson', action: 'searched for "API documentation"', time: '2 minutes ago' },
+    { user: 'Bob Smith', action: 'found result in Slack #engineering', time: '5 minutes ago' },
+    { user: 'Carol Davis', action: 'bookmarked "Meeting notes Q4"', time: '12 minutes ago' },
+    { user: 'David Wilson', action: 'searched for "deployment process"', time: '18 minutes ago' },
+  ])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchDashboardData()
+  }, [])
+
+  const fetchDashboardData = async () => {
+    try {
+      // Fetch dashboard statistics
+      const [analyticsData, sourcesData] = await Promise.allSettled([
+        api.getAnalytics('7d'),
+        api.getSources(1, 5)
+      ])
+
+      // Update stats if API calls succeeded
+      if (analyticsData.status === 'fulfilled') {
+        setStats(prev => ({
+          ...prev,
+          ...analyticsData.value
+        }))
+      }
+
+      setLoading(false)
+    } catch (error) {
+      console.error('Failed to fetch dashboard data:', error)
+      setLoading(false)
+    }
+  }
+
+  const statCards = [
+    {
+      title: 'Total Searches',
+      value: stats.totalSearches.toLocaleString(),
+      change: '+12% from last week',
+      icon: SearchIcon,
+      color: 'text-blue-600'
+    },
+    {
+      title: 'Avg Response Time',
+      value: `${stats.avgResponseTime}ms`,
+      change: '-8% from last week',
+      icon: SpeedIcon,
+      color: 'text-green-600'
+    },
+    {
+      title: 'Active Sources',
+      value: stats.activeSources.toString(),
+      change: '+2 new sources',
+      icon: StorageIcon,
+      color: 'text-purple-600'
+    },
+    {
+      title: 'Total Documents',
+      value: stats.totalDocuments.toLocaleString(),
+      change: '+156 this week',
+      icon: GroupIcon,
+      color: 'text-orange-600'
+    }
+  ]
+
+  if (loading) {
+    return (
+      <div className="flex-1 space-y-4 p-8 pt-6">
+        <div className="flex items-center justify-between space-y-2">
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {[1, 2, 3, 4].map(i => (
+            <Card key={i}>
+              <CardContent className="p-6">
+                <div className="animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-8 bg-gray-200 rounded w-1/2 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-2/3"></div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
   return (
-    <div className="container py-8">
-      <div className="mb-8">
-        <h1 className="font-funnel text-3xl font-bold mb-2">Dashboard</h1>
-        <p className="text-muted-foreground font-dm-sans">
-          Welcome back! Here's what's happening with your team's knowledge.
-        </p>
+    <div className="flex-1 space-y-4 p-8 pt-6">
+      <div className="flex items-center justify-between space-y-2">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Welcome back! Here's what's happening with your team's knowledge.
+          </p>
+        </div>
+        <div className="flex items-center space-x-2">
+          <Link href="/search/advanced">
+            <Button variant="outline">
+              <TrendingUpIcon className="mr-2 h-4 w-4" />
+              Advanced Search
+            </Button>
+          </Link>
+          <Link href="/sources/add/slack">
+            <Button>
+              <AddIcon className="mr-2 h-4 w-4" />
+              Add Source
+            </Button>
+          </Link>
+        </div>
       </div>
 
-      {/* Quick Search */}
-      <Card className="mb-8">
-        <CardContent className="p-6">
-          <div className="relative">
-            <SearchIcon className="absolute left-3 top-3 h-5 w-5 text-muted-foreground" />
-            <Input
-              placeholder="Search your team's knowledge..."
-              className="pl-10 pr-20 h-12 text-lg"
-            />
-            <Button 
-              variant="gradient" 
-              className="absolute right-1 top-1 h-10"
-            >
-              Search
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        {[
-          { icon: SearchIcon, title: 'Searches Today', value: '247', change: '+12%' },
-          { icon: SpeedIcon, title: 'Avg Response Time', value: '142ms', change: '-8%' },
-          { icon: GroupIcon, title: 'Active Users', value: '34', change: '+23%' },
-          { icon: TrendingUpIcon, title: 'Success Rate', value: '96.2%', change: '+2.1%' },
-        ].map((stat) => (
-          <Card key={stat.title}>
-            <CardContent className="p-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-muted-foreground mb-1">
-                    {stat.title}
-                  </p>
-                  <p className="text-2xl font-bold font-funnel">{stat.value}</p>
-                  <p className="text-sm text-green-600 mt-1">{stat.change}</p>
-                </div>
-                <div className="h-12 w-12 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center">
-                  <stat.icon className="h-6 w-6 text-white" />
-                </div>
-              </div>
+      {/* Stats Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {statCards.map((stat, index) => (
+          <Card key={index}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                {stat.title}
+              </CardTitle>
+              <stat.icon className={`h-4 w-4 ${stat.color}`} />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{stat.value}</div>
+              <p className="text-xs text-muted-foreground">
+                {stat.change}
+              </p>
             </CardContent>
           </Card>
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Search Activity Chart */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
+        {/* Quick Actions */}
+        <div className="col-span-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Actions</CardTitle>
+              <CardDescription>
+                Frequently used features and shortcuts
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                {quickActions.map((action, index) => (
+                  <Link key={index} href={action.href}>
+                    <div className="flex items-center space-x-4 p-4 border rounded-lg hover:bg-accent transition-colors cursor-pointer">
+                      <div className={`p-2 rounded-full ${action.color} text-white`}>
+                        <action.icon className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold">{action.title}</h3>
+                        <p className="text-sm text-muted-foreground">{action.description}</p>
+                      </div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="col-span-3">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <HistoryIcon className="mr-2 h-5 w-5" />
+                Recent Activity
+              </CardTitle>
+              <CardDescription>
+                Latest searches and system events
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {recentActivity.map((activity, index) => (
+                  <div key={index} className="flex items-start space-x-3">
+                    <div className="w-2 h-2 bg-primary rounded-full mt-2 flex-shrink-0" />
+                    <div className="flex-1 space-y-1">
+                      <p className="text-sm">
+                        <span className="font-medium">{activity.user}</span>{' '}
+                        {activity.action}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {activity.time}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="mt-4 pt-4 border-t">
+                <Link href="/search/history">
+                  <Button variant="ghost" size="sm" className="w-full">
+                    View All Activity
+                  </Button>
+                </Link>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Search Trends Chart */}
+      <div className="grid gap-4 md:grid-cols-1">
         <Card>
           <CardHeader>
-            <CardTitle className="font-funnel">Search Activity</CardTitle>
-            <CardDescription className="font-dm-sans">
-              Daily search volume for the past week
+            <CardTitle>Search Activity (Last 7 Days)</CardTitle>
+            <CardDescription>
+              Daily search volume and trends
             </CardDescription>
           </CardHeader>
-          <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={searchData}>
+          <CardContent className="pl-2">
+            <ResponsiveContainer width="100%" height={350}>
+              <LineChart data={searchData}>
                 <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip />
-                <Bar dataKey="searches" fill="#8b5cf6" radius={[4, 4, 0, 0]} />
-              </BarChart>
+                <XAxis 
+                  dataKey="day" 
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                />
+                <YAxis 
+                  tick={{ fontSize: 12 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <Tooltip 
+                  contentStyle={{
+                    backgroundColor: 'hsl(var(--background))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Line 
+                  type="monotone" 
+                  dataKey="searches" 
+                  stroke="hsl(var(--primary))" 
+                  strokeWidth={2}
+                  dot={{ fill: 'hsl(var(--primary))', strokeWidth: 2, r: 4 }}
+                  activeDot={{ r: 6, stroke: 'hsl(var(--primary))', strokeWidth: 2 }}
+                />
+              </LineChart>
             </ResponsiveContainer>
           </CardContent>
         </Card>
-
-        {/* Recent Activity */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="font-funnel">Recent Activity</CardTitle>
-            <CardDescription className="font-dm-sans">
-              Latest searches and interactions
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {recentActivity.map((activity, index) => (
-                <div key={index} className="flex items-start space-x-3 p-3 rounded-lg hover:bg-secondary/50 transition-colors">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-sm font-medium">
-                      {activity.user.split(' ').map(n => n[0]).join('')}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-foreground">
-                      {activity.user}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {activity.action}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {activity.time}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="mt-8">
-        <h2 className="font-funnel text-xl font-semibold mb-4">Quick Actions</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Button variant="outline" className="h-20 flex-col space-y-2">
-            <AddIcon className="h-5 w-5" />
-            <span>Add Data Source</span>
-          </Button>
-          <Button variant="outline" className="h-20 flex-col space-y-2">
-            <SearchIcon className="h-5 w-5" />
-            <span>Advanced Search</span>
-          </Button>
-          <Button variant="outline" className="h-20 flex-col space-y-2">
-            <TrendingUpIcon className="h-5 w-5" />
-            <span>View Analytics</span>
-          </Button>
-        </div>
       </div>
     </div>
   )
