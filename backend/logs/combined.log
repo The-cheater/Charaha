@@ -2625,3 +2625,31 @@
 {"level":"info","message":"📡 WebSocket connections: 0","service":"team-memory-backend","timestamp":"2025-10-06T13:39:53.023Z"}
 {"level":"info","message":"🧠 Vector DB status: healthy","service":"team-memory-backend","timestamp":"2025-10-06T13:39:53.023Z"}
 {"level":"info","message":"🤖 Embedding service: ready","service":"team-memory-backend","timestamp":"2025-10-06T13:39:53.024Z"}
+{"level":"info","message":"🚀 Starting TeamMemory server...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.595Z"}
+{"level":"info","message":"📊 Environment: development","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.604Z"}
+{"level":"info","message":"🔧 Node.js version: v22.12.0","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.605Z"}
+{"level":"info","message":"📦 Connecting to MongoDB...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.606Z"}
+{"level":"warn","message":"Process Warning: The `punycode` module is deprecated. Please use a userland alternative instead.","name":"DeprecationWarning","service":"team-memory-backend","stack":"DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.\n    at node:punycode:3:9\n    at BuiltinModule.compileForInternalLoader (node:internal/bootstrap/realm:399:7)\n    at BuiltinModule.compileForPublicLoader (node:internal/bootstrap/realm:338:10)\n    at loadBuiltinModule (node:internal/modules/helpers:112:7)\n    at Function._load (node:internal/modules/cjs/loader:1100:17)\n    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\n    at wrapModuleLoad (node:internal/modules/cjs/loader:219:24)\n    at Module.require (node:internal/modules/cjs/loader:1340:12)\n    at require (node:internal/modules/helpers:138:16)\n    at Object.<anonymous> (D:\\Charaha\\backend\\node_modules\\mongodb-connection-string-url\\node_modules\\tr46\\index.js:3:18)","timestamp":"2025-10-06T13:41:22.641Z"}
+{"level":"info","message":"✅ MongoDB connected successfully","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.692Z"}
+{"level":"info","message":"🧠 Initializing vector database...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:22.694Z"}
+{"level":"info","message":"Collection already exists: team_memory_vectors","service":"team-memory-backend","timestamp":"2025-10-06T13:41:23.734Z"}
+{"level":"info","message":"✅ Vector database initialized","service":"team-memory-backend","timestamp":"2025-10-06T13:41:23.736Z"}
+{"level":"info","message":"🤖 Initializing embedding service...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:23.736Z"}
+{"level":"info","message":"✅ Embedding service initialized","service":"team-memory-backend","timestamp":"2025-10-06T13:41:25.240Z"}
+{"hasSigningSecret":true,"hasToken":true,"level":"info","message":"💬 Initializing Slack service...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:25.242Z"}
+{"level":"info","message":"Testing Slack API connection...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:25.249Z"}
+{"level":"info","message":"✅ Slack client initialized","service":"team-memory-backend","team":"TeamMemory Search","teamId":"T09HFLSGSBG","timestamp":"2025-10-06T13:41:25.712Z","userId":"U09HBHXPNH1"}
+{"level":"info","message":"✅ Slack client initialized","service":"team-memory-backend","timestamp":"2025-10-06T13:41:25.730Z"}
+{"level":"info","message":"✅ Slack service initialized","service":"team-memory-backend","team":"TeamMemory Search","timestamp":"2025-10-06T13:41:26.040Z","user":"teammemory_search"}
+{"level":"info","message":"📡 Initializing WebSocket service...","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.041Z"}
+{"level":"info","message":"✅ WebSocket server initialized","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.046Z"}
+{"level":"info","message":"✅ WebSocket service initialized","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.046Z"}
+{"level":"info","message":"🌟 Server running successfully on port 4000","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.050Z"}
+{"level":"info","message":"📋 Health check: http://localhost:4000/health","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.050Z"}
+{"level":"info","message":"📚 API info: http://localhost:4000/api/v1/info","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.050Z"}
+{"level":"info","message":"📊 Metrics: http://localhost:4000/metrics","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.051Z"}
+{"level":"info","message":"📡 WebSocket: ws://localhost:4000","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.051Z"}
+{"level":"info","message":"🎉 TeamMemory API v2.0 is ready!","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.051Z"}
+{"level":"info","message":"📡 WebSocket connections: 0","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.052Z"}
+{"level":"info","message":"🧠 Vector DB status: healthy","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.052Z"}
+{"level":"info","message":"🤖 Embedding service: ready","service":"team-memory-backend","timestamp":"2025-10-06T13:41:26.052Z"}

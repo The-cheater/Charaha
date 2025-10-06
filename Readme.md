@@ -1,6 +1,6 @@
 
 # Searchable Memory for Teams
-![Home Page](frontend/public/Screenshot%202025-09-15%20234442.png)
+![Home Page](public/Screenshot%202025-09-15%20234442.png)
 
 A unified knowledge search system that ingests content from Slack and Google Docs, transforms it into searchable embeddings, and provides a natural language chat interface for teams to find relevant information quickly.
 
@@ -15,7 +15,7 @@ A unified knowledge search system that ingests content from Slack and Google Doc
 - Chat-style UI with source attribution
 - Free-tier friendly architecture
 
-![Analytics](frontend/public/anal.png)
+![Analytics](public/anal.png)
 
 ## Architecture Overview
 
@@ -137,7 +137,7 @@ backend/
 ├── nodemon.json                      # 🔄 Development server config
 └── README.md                         # 📖 Project documentation
 ```
-
+![TERMINAL](public/Screenshot%202025-10-05%20204440.png)
 
 ## Frontend Project Structure
 
