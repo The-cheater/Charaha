@@ -193,7 +193,7 @@ frontend/
 │   │   └── SignupForm.tsx          # Signup form
 │   ├── dashboard/
 │   │   ├── QuickActions.tsx        # Dashboard quick actions
-│   │   ├── RecentActivity.tsx      # Recent activity feed
+│   │   ├── RecentActivity.tsx      # Recent activity feed (uses global searchHistory)
 │   │   └── StatsCards.tsx          # Dashboard stats
 │   ├── ingestion/
 │   │   ├── GoogleDriveConnector.tsx# Google Drive connector
@@ -238,10 +238,9 @@ frontend/
 │   └── ConnectionStatus.tsx        # API connection status
 │
 ├── hooks/
-│   ├── useAuth.ts                  # Auth hook (TS)
-│   ├── useAuth.tsx                 # Auth hook (TSX)
+│   ├── useAuth.tsx                 # Auth hook (React context/provider, must be .tsx)
 │   ├── useChat.ts                  # Chat state hook
-│   └── useSearch.ts                # Search state hook
+│   └── useSearch.ts                # Search state hook (now returns global searchHistory)
 │
 ├── lib/
 │   ├── api.ts                      # API utilities

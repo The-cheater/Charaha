@@ -1,13 +1,17 @@
 const slackService = require('./slack.service');
-const googleService = require('./google.service');
+const googleDriveService = require('./google-drive.service');
 const chunkerService = require('./chunker.service');
-const hfService = require('./hf.service');
-const qdrantService = require('./qdrant.service');
+const embeddingService = require('./embedding.service');
+const vectorService = require('./vector.service');
+const analyticsService = require('./analytics.service');
 const Source = require('../models/mongodb/source.model');
 const Chunk = require('../models/mongodb/chunk.model');
 const logger = require('../utils/logger');
 
 class IngestService {
+  /**
+   * Ingest Slack channel messages
+   */
   async ingestSlackChannel({ channel, since, workspace, userId }) {
     try {
       // Get or create source
@@ -36,43 +40,73 @@ class IngestService {
         await source.save();
       }
 
-      // Fetch messages
-      const messages = await slackService.getChannelHistory(channel, {
-        oldest: since ? new Date(since).getTime() / 1000 : undefined,
-        limit: 1000
-      });
+      // Fetch messages with pagination
+      let totalProcessed = 0;
+      let hasMore = true;
+      let oldest = since;
 
-      let processedCount = 0;
-      const batchSize = 10;
+      while (hasMore) {
+        const messages = await slackService.getChannelMessages(channel, {
+          oldest,
+          limit: 100
+        });
 
-      for (let i = 0; i < messages.length; i += batchSize) {
-        const batch = messages.slice(i, i + batchSize);
-        await this.processBatchMessages(batch, channelInfo, source);
-        processedCount += batch.length;
+        if (!messages || messages.length === 0) {
+          hasMore = false;
+          break;
+        }
+
+        // Process batch
+        await this.processBatchMessages(messages, channelInfo, source);
+        totalProcessed += messages.length;
+
+        // Update progress
+        await this.updateSourceProgress(source._id, {
+          processed: totalProcessed,
+          stage: 'processing_messages'
+        });
+
+        // Set next oldest for pagination
+        oldest = messages[messages.length - 1].timestamp;
         
-        logger.info(`Processed ${processedCount}/${messages.length} messages for channel ${channel}`);
+        // Rate limiting
+        await this.delay(1000);
       }
 
       // Update source status
       source.status = 'completed';
-      source.lastSyncAt = new Date();
-      source.stats.totalMessages = messages.length;
-      source.stats.lastMessageDate = messages.length > 0 ? 
-        new Date(parseFloat(messages[0].ts) * 1000) : null;
+      source.stats = {
+        ...source.stats,
+        totalMessages: totalProcessed,
+        lastSyncAt: new Date()
+      };
       await source.save();
+
+      logger.info(`✅ Slack ingestion completed for channel ${channelInfo.name}: ${totalProcessed} messages`);
 
       return {
         sourceId: source._id,
-        messagesProcessed: processedCount,
-        chunksCreated: await Chunk.countDocuments({ sourceId: source._id })
+        messagesProcessed: totalProcessed,
+        status: 'completed'
       };
 
     } catch (error) {
-      logger.error('Slack ingestion error:', error);
+      logger.error(`❌ Slack ingestion failed for channel ${channel}:`, error);
+      
+      // Update source status to failed
+      if (source) {
+        source.status = 'failed';
+        source.error = error.message;
+        await source.save();
+      }
+      
       throw error;
     }
   }
 
+  /**
+   * Process batch of messages
+   */
   async processBatchMessages(messages, channelInfo, source) {
     const chunks = [];
     const embeddings = [];
@@ -80,8 +114,9 @@ class IngestService {
     for (const message of messages) {
       if (!message.text || message.subtype) continue;
 
+      // Chunk the message
       const messageChunks = chunkerService.chunkSlackMessage(message, channelInfo);
-      
+
       for (const chunk of messageChunks) {
         chunks.push({
           sourceId: source._id,
@@ -99,7 +134,7 @@ class IngestService {
         });
 
         // Generate embedding
-        const embedding = await hfService.generateEmbedding(chunk.text);
+        const embedding = await embeddingService.generateEmbedding(chunk.text);
         embeddings.push(embedding);
       }
     }
@@ -107,7 +142,7 @@ class IngestService {
     // Save chunks and create vector points
     if (chunks.length > 0) {
       const savedChunks = await Chunk.insertMany(chunks);
-      
+
       const vectorPoints = savedChunks.map((chunk, index) => ({
         id: chunk._id.toString(),
         vector: embeddings[index],
@@ -117,200 +152,393 @@ class IngestService {
           sourceUrl: `https://slack.com/archives/${channelInfo.id}/p${chunk.externalId.replace('.', '')}`,
           author: chunk.author,
           timestamp: chunk.timestamp.toISOString(),
-          channel: channelInfo.name
+          channel: channelInfo.name,
+          userId: source.userId.toString()
         }
       }));
 
-      // Upsert to Qdrant
-      const pointIds = await qdrantService.upsertPoints(vectorPoints);
-      
-      // Update chunks with Qdrant point IDs
-      await Promise.all(savedChunks.map((chunk, index) => {
-        chunk.qdrantPointId = pointIds[index];
-        return chunk.save();
-      }));
+      // Add to vector database
+      await vectorService.addVectors(vectorPoints);
     }
   }
 
-  async ingestGoogleDrive({ fileId, folderId, since, userId }) {
+  /**
+   * Ingest Google Drive files
+   */
+  async ingestGoogleDriveFiles({ fileIds, folderId, userId }) {
     try {
       let filesToProcess = [];
 
-      if (fileId) {
-        filesToProcess = [{ id: fileId }];
+      if (fileIds && fileIds.length > 0) {
+        // Process specific files
+        filesToProcess = fileIds;
       } else if (folderId) {
-        filesToProcess = await googleService.getFilesInFolder(folderId);
+        // Get files from folder
+        const searchResult = await googleDriveService.searchFiles({
+          folder: folderId,
+          pageSize: 100
+        });
+        filesToProcess = searchResult.files.map(f => f.id);
+      } else {
+        throw new Error('Either fileIds or folderId must be provided');
       }
 
       const results = [];
 
-      for (const file of filesToProcess) {
+      for (const fileId of filesToProcess) {
         try {
-          const result = await this.processGoogleFile(file.id, userId, since);
+          const result = await this.ingestGoogleDriveFile(fileId, userId);
           results.push(result);
         } catch (error) {
-          logger.error(`Error processing file ${file.id}:`, error);
-          results.push({ fileId: file.id, error: error.message });
+          logger.error(`❌ Failed to ingest file ${fileId}:`, error);
+          results.push({
+            fileId,
+            status: 'failed',
+            error: error.message
+          });
         }
       }
 
-      return results;
+      return {
+        processed: results.length,
+        successful: results.filter(r => r.status === 'completed').length,
+        failed: results.filter(r => r.status === 'failed').length,
+        results
+      };
+
     } catch (error) {
-      logger.error('Google Drive ingestion error:', error);
+      logger.error('❌ Google Drive batch ingestion failed:', error);
       throw error;
     }
   }
 
-  async processGoogleFile(fileId, userId, since) {
-    // Get file metadata
-    const fileMetadata = await googleService.getFileMetadata(fileId);
-    
-    // Skip if file was modified before 'since' date
-    if (since && new Date(fileMetadata.modifiedTime) < new Date(since)) {
-      return { fileId, skipped: true, reason: 'Not modified since last sync' };
-    }
+  /**
+   * Ingest single Google Drive file
+   */
+  async ingestGoogleDriveFile(fileId, userId) {
+    try {
+      // Get file details
+      const fileDetails = await googleDriveService.getFileDetails(fileId);
 
-    // Get or create source
-    let source = await Source.findOne({
-      type: 'google_doc',
-      externalId: fileId,
-      userId
-    });
-
-    if (!source) {
-      source = await Source.create({
-        type: 'google_doc',
+      // Create or update source
+      let source = await Source.findOne({
+        type: 'google_drive',
         externalId: fileId,
-        name: fileMetadata.name,
+        userId
+      });
+
+      if (!source) {
+        source = await Source.create({
+          type: 'google_drive',
+          externalId: fileId,
+          name: fileDetails.name,
+          metadata: {
+            mimeType: fileDetails.mimeType,
+            url: fileDetails.webViewLink,
+            size: fileDetails.size,
+            modifiedTime: fileDetails.modifiedTime
+          },
+          userId,
+          status: 'processing'
+        });
+      } else {
+        source.status = 'processing';
+        await source.save();
+      }
+
+      // Extract content
+      const contentResult = await googleDriveService.extractFileContent(
+        fileId, 
+        fileDetails.mimeType
+      );
+
+      // Chunk the content
+      const chunks = chunkerService.chunkText(contentResult.content, {
+        sourceType: 'google_drive',
+        fileName: fileDetails.name,
+        mimeType: fileDetails.mimeType
+      });
+
+      const savedChunks = [];
+      const embeddings = [];
+
+      // Process chunks
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        
+        const chunkDoc = await Chunk.create({
+          sourceId: source._id,
+          externalId: `${fileId}_chunk_${i}`,
+          text: chunk.text,
+          startChar: chunk.startChar,
+          endChar: chunk.endChar,
+          metadata: {
+            ...chunk.metadata,
+            fileId,
+            fileName: fileDetails.name
+          }
+        });
+
+        savedChunks.push(chunkDoc);
+
+        // Generate embedding
+        const embedding = await embeddingService.generateEmbedding(chunk.text);
+        embeddings.push(embedding);
+      }
+
+      // Create vector points
+      const vectorPoints = savedChunks.map((chunk, index) => ({
+        id: chunk._id.toString(),
+        vector: embeddings[index],
+        payload: {
+          chunkId: chunk._id.toString(),
+          sourceType: 'google_drive',
+          sourceUrl: fileDetails.webViewLink,
+          fileName: fileDetails.name,
+          mimeType: fileDetails.mimeType,
+          userId: source.userId.toString()
+        }
+      }));
+
+      // Add to vector database
+      await vectorService.addVectors(vectorPoints);
+
+      // Update source
+      source.status = 'completed';
+      source.stats = {
+        totalChunks: savedChunks.length,
+        totalCharacters: contentResult.content.length,
+        lastSyncAt: new Date()
+      };
+      await source.save();
+
+      logger.info(`✅ Google Drive file ingested: ${fileDetails.name} (${savedChunks.length} chunks)`);
+
+      return {
+        sourceId: source._id,
+        fileId,
+        fileName: fileDetails.name,
+        chunksCreated: savedChunks.length,
+        status: 'completed'
+      };
+
+    } catch (error) {
+      logger.error(`❌ Google Drive file ingestion failed for ${fileId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Ingest text content directly
+   */
+  async ingestText({ text, title, userId, metadata = {} }) {
+    try {
+      // Create source
+      const source = await Source.create({
+        type: 'text',
+        name: title || 'Text Content',
         metadata: {
-          url: fileMetadata.webViewLink,
-          mimeType: fileMetadata.mimeType,
-          size: fileMetadata.size
+          ...metadata,
+          length: text.length
         },
         userId,
         status: 'processing'
       });
-    } else {
-      source.status = 'processing';
+
+      // Chunk the text
+      const chunks = chunkerService.chunkText(text, {
+        sourceType: 'text',
+        title
+      });
+
+      const savedChunks = [];
+      const embeddings = [];
+
+      // Process chunks
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        
+        const chunkDoc = await Chunk.create({
+          sourceId: source._id,
+          externalId: `text_chunk_${i}`,
+          text: chunk.text,
+          startChar: chunk.startChar,
+          endChar: chunk.endChar,
+          metadata: chunk.metadata
+        });
+
+        savedChunks.push(chunkDoc);
+
+        // Generate embedding
+        const embedding = await embeddingService.generateEmbedding(chunk.text);
+        embeddings.push(embedding);
+      }
+
+      // Create vector points
+      const vectorPoints = savedChunks.map((chunk, index) => ({
+        id: chunk._id.toString(),
+        vector: embeddings[index],
+        payload: {
+          chunkId: chunk._id.toString(),
+          sourceType: 'text',
+          title: title || 'Text Content',
+          userId: source.userId.toString()
+        }
+      }));
+
+      // Add to vector database
+      await vectorService.addVectors(vectorPoints);
+
+      // Update source
+      source.status = 'completed';
+      source.stats = {
+        totalChunks: savedChunks.length,
+        totalCharacters: text.length,
+        lastSyncAt: new Date()
+      };
       await source.save();
-    }
 
-    let content;
-    
-    // Handle different file types
-    if (fileMetadata.mimeType === 'application/vnd.google-apps.document') {
-      const doc = await googleService.getDocumentContent(fileId);
-      content = {
-        title: doc.title,
-        text: doc.content,
-        author: fileMetadata.owners?.[0]?.displayName || 'Unknown'
+      logger.info(`✅ Text ingested: ${title} (${savedChunks.length} chunks)`);
+
+      return {
+        sourceId: source._id,
+        chunksCreated: savedChunks.length,
+        status: 'completed'
       };
-    } else {
-      // For other file types, try to export as plain text
-      const textContent = await googleService.exportDocument(fileId, 'text/plain');
-      content = {
-        title: fileMetadata.name,
-        text: textContent,
-        author: fileMetadata.owners?.[0]?.displayName || 'Unknown'
-      };
+
+    } catch (error) {
+      logger.error('❌ Text ingestion failed:', error);
+      throw error;
     }
-
-    // Chunk the content
-    const chunks = chunkerService.chunkText(content.text, {
-      title: content.title,
-      author: content.author,
-      fileName: fileMetadata.name,
-      url: fileMetadata.webViewLink
-    });
-
-    // Generate embeddings
-    const embeddings = await hfService.generateEmbeddings(
-      chunks.map(chunk => chunk.text)
-    );
-
-    // Save chunks
-    const chunkDocs = chunks.map((chunk, index) => ({
-      sourceId: source._id,
-      externalId: fileId,
-      text: chunk.text,
-      startChar: chunk.startChar,
-      endChar: chunk.endChar,
-      author: content.author,
-      timestamp: new Date(fileMetadata.modifiedTime),
-      metadata: {
-        ...chunk.metadata,
-        fileName: fileMetadata.name
-      }
-    }));
-
-    const savedChunks = await Chunk.insertMany(chunkDocs);
-
-    // Create vector points
-    const vectorPoints = savedChunks.map((chunk, index) => ({
-      id: chunk._id.toString(),
-      vector: embeddings[index],
-      payload: {
-        chunkId: chunk._id.toString(),
-        sourceType: 'google_doc',
-        sourceUrl: fileMetadata.webViewLink,
-        author: chunk.author,
-        timestamp: chunk.timestamp.toISOString(),
-        fileName: fileMetadata.name
-      }
-    }));
-
-    // Upsert to Qdrant
-    const pointIds = await qdrantService.upsertPoints(vectorPoints);
-
-    // Update chunks with Qdrant point IDs
-    await Promise.all(savedChunks.map((chunk, index) => {
-      chunk.qdrantPointId = pointIds[index];
-      return chunk.save();
-    }));
-
-    // Update source status
-    source.status = 'completed';
-    source.lastSyncAt = new Date();
-    source.stats.totalChunks = savedChunks.length;
-    await source.save();
-
-    return {
-      sourceId: source._id,
-      fileId,
-      chunksCreated: savedChunks.length
-    };
   }
 
+  /**
+   * Delete ingested content
+   */
   async deleteSource(sourceId, userId) {
     try {
       const source = await Source.findOne({ _id: sourceId, userId });
-      
       if (!source) {
-        throw new Error('Source not found');
+        throw new Error('Source not found or access denied');
       }
 
-      // Get all chunks for this source
+      // Get chunks to delete
       const chunks = await Chunk.find({ sourceId });
-      const pointIds = chunks.map(chunk => chunk.qdrantPointId).filter(Boolean);
+      const chunkIds = chunks.map(c => c._id.toString());
 
-      // Delete from Qdrant
-      if (pointIds.length > 0) {
-        await qdrantService.deletePoints(pointIds);
+      // Delete from vector database
+      if (chunkIds.length > 0) {
+        await vectorService.deleteVectors({ 
+          filter: { chunkId: { $in: chunkIds } }
+        });
       }
 
-      // Delete chunks from MongoDB
+      // Delete chunks
       await Chunk.deleteMany({ sourceId });
 
       // Delete source
-      await Source.findByIdAndDelete(sourceId);
+      await Source.deleteOne({ _id: sourceId });
+
+      logger.info(`✅ Deleted source: ${source.name} (${chunkIds.length} chunks)`);
 
       return {
-        deletedChunks: chunks.length,
-        deletedVectorPoints: pointIds.length
+        sourceId,
+        chunksDeleted: chunkIds.length,
+        status: 'deleted'
       };
+
     } catch (error) {
-      logger.error('Delete source error:', error);
+      logger.error(`❌ Failed to delete source ${sourceId}:`, error);
       throw error;
+    }
+  }
+
+  /**
+   * Get ingestion status
+   */
+  async getIngestionStatus(userId) {
+    try {
+      const sources = await Source.find({ userId })
+        .select('name type status stats error createdAt updatedAt')
+        .sort({ updatedAt: -1 });
+
+      const summary = {
+        total: sources.length,
+        completed: sources.filter(s => s.status === 'completed').length,
+        processing: sources.filter(s => s.status === 'processing').length,
+        failed: sources.filter(s => s.status === 'failed').length
+      };
+
+      return {
+        summary,
+        sources
+      };
+
+    } catch (error) {
+      logger.error('❌ Failed to get ingestion status:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update source progress (for WebSocket updates)
+   */
+  async updateSourceProgress(sourceId, progress) {
+    try {
+      // Emit progress via analytics service (which handles WebSocket)
+      analyticsService.trackIngestionProgress(
+        sourceId.userId, 
+        sourceId, 
+        progress
+      );
+    } catch (error) {
+      logger.debug('Failed to emit progress update:', error);
+    }
+  }
+
+  /**
+   * Utility: Delay function
+   */
+  delay(ms) {
+    return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Health check
+   */
+  async healthCheck() {
+    try {
+      const stats = await Source.aggregate([
+        {
+          $group: {
+            _id: '$status',
+            count: { $sum: 1 }
+          }
+        }
+      ]);
+
+      const totalChunks = await Chunk.countDocuments();
+
+      return {
+        status: 'healthy',
+        sources: stats.reduce((acc, stat) => {
+          acc[stat._id] = stat.count;
+          return acc;
+        }, {}),
+        totalChunks,
+        services: {
+          slack: !!slackService,
+          googleDrive: !!googleDriveService,
+          embedding: !!embeddingService,
+          vector: !!vectorService
+        }
+      };
+
+    } catch (error) {
+      return {
+        status: 'unhealthy',
+        error: error.message
+      };
     }
   }
 }

@@ -1,9 +1,9 @@
-const VectorService = require('../services/vector.service');
+const vectorService = require('../services/vector.service');
 const logger = require('../utils/logger');
 
 class QueryController {
   constructor() {
-    this.vectorService = new VectorService();
+    this.vectorService = vectorService;
   }
 
   /**
@@ -11,7 +11,7 @@ class QueryController {
    */
   search = async (req, res) => {
     try {
-      const { query, topK = 10, source = 'all', minScore = 0.7 } = req.body;
+      let { query, topK = 10, source = 'all', minScore = 0.7, filters = {} } = req.body;
 
       if (!query || query.trim() === '') {
         return res.status(400).json({
@@ -20,10 +20,32 @@ class QueryController {
         });
       }
 
+      // ✅ FIX: Handle source validation more flexibly
+      if (source && !['slack', 'google-drive', 'all'].includes(source)) {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Invalid source. Must be slack, google-drive, or all'
+        });
+      }
+
+      // ✅ FIX: Set up filters properly for all sources
+      const searchFilters = { ...filters };
+      
+      // If no specific source is provided or source is 'all', search all sources
+      if (!source || source === 'all') {
+        // Don't restrict by source - search everything
+        delete searchFilters.source;
+      } else {
+        // Search specific source
+        searchFilters.source = source;
+      }
+
+      logger.info(`Search query: "${query}" with source: ${source || 'all'}`);
+
       // Perform vector search with source filtering
       const results = await this.vectorService.searchSimilar(query, topK, {
         minScore,
-        source: source === 'all' ? undefined : source
+        ...searchFilters
       });
 
       // Group results by source
@@ -51,7 +73,8 @@ class QueryController {
           searchParams: {
             topK,
             source,
-            minScore
+            minScore,
+            filters: searchFilters
           }
         }
       });
@@ -60,7 +83,7 @@ class QueryController {
       logger.error('Search failed:', error);
       res.status(500).json({
         status: 'error',
-        message: error.message
+        message: error.message || 'Search failed'
       });
     }
   };
@@ -77,6 +100,13 @@ class QueryController {
         return res.status(400).json({
           status: 'error',
           message: 'Invalid source. Must be slack or google-drive'
+        });
+      }
+
+      if (!query || query.trim() === '') {
+        return res.status(400).json({
+          status: 'error',
+          message: 'Query is required'
         });
       }
 
@@ -99,7 +129,7 @@ class QueryController {
       logger.error(`Search by source ${source} failed:`, error);
       res.status(500).json({
         status: 'error',
-        message: error.message
+        message: error.message || `Search by source failed`
       });
     }
   };
@@ -120,7 +150,7 @@ class QueryController {
       logger.error('Get stats failed:', error);
       res.status(500).json({
         status: 'error',
-        message: error.message
+        message: error.message || 'Failed to get stats'
       });
     }
   };

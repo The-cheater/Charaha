@@ -4,7 +4,10 @@ const config = require('../config/app.config');
 
 class HuggingFaceService {
   constructor() {
-    this.hf = new HfInference(process.env.HF_API_KEY);
+    const apiKey = process.env.HF_API_KEY
+      || process.env.HUGGINGFACE_API_KEY
+      || process.env.HUGGING_FACE_API_KEY;
+    this.hf = new HfInference(apiKey);
     this.model = config.embedding.model;
   }
 

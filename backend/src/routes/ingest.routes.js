@@ -9,15 +9,26 @@ const router = express.Router();
 router.use(authenticate);
 
 // Slack ingestion
-router.post('/slack', validateIngestRequest, ingestController.ingestSlackMessages);
+router.post('/slack', validateIngestRequest, ingestController.ingestSlack);
+
+// Bulk Slack ingestion
+router.post('/slack/bulk', validateIngestRequest, ingestController.bulkIngestSlack);
+
+// Get Slack channels
+router.get('/slack/channels', ingestController.getSlackChannels);
+
+// Search Slack messages
+router.get('/slack/search', ingestController.searchSlack);
 
 // Google Drive ingestion
-router.post('/google-drive', validateGoogleDriveIngest, ingestController.ingestGoogleDrive);
+router.post('/google-drive', validateGoogleDriveIngest, ingestController.ingestDrive);
 
 // Bulk Google Drive ingestion
-router.post('/google-drive/bulk', validateGoogleDriveIngest, ingestController.bulkIngestGoogleDrive);
+router.post('/google-drive/bulk', validateGoogleDriveIngest, ingestController.bulkIngestDrive);
 
-// Get ingestion statistics
-router.get('/stats', ingestController.getIngestionStats);
+// Get ingestion sources
+router.get('/sources', ingestController.getSources);
+router.get('/sources/:sourceId', ingestController.getSourceStatus);
+router.delete('/sources/:sourceId', ingestController.deleteSource);
 
 module.exports = router;

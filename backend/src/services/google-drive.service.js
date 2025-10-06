@@ -3,63 +3,45 @@ const fs = require('fs');
 const pdfParse = require('pdf-parse');
 const mammoth = require('mammoth');
 const logger = require('../utils/logger');
+const { GOOGLE_DRIVE_CONFIG } = require('../utils/constants');
 
 class GoogleDriveService {
   constructor() {
-    try {
-      // Initialize Google Auth
-      this.auth = new google.auth.GoogleAuth({
-        scopes: [
-          'https://www.googleapis.com/auth/drive.readonly',
-          'https://www.googleapis.com/auth/documents.readonly',
-          'https://www.googleapis.com/auth/spreadsheets.readonly',
-          'https://www.googleapis.com/auth/presentations.readonly'
-        ],
-        credentials: {
-          type: 'service_account',
-          project_id: process.env.GOOGLE_PROJECT_ID,
-          private_key_id: process.env.GOOGLE_PRIVATE_KEY_ID,
-          private_key: process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          client_email: process.env.GOOGLE_CLIENT_EMAIL,
-          client_id: process.env.GOOGLE_CLIENT_ID,
-          auth_uri: 'https://accounts.google.com/o/oauth2/auth',
-          token_uri: 'https://oauth2.googleapis.com/token',
-        }
-      });
+    this.oauth2Client = new google.auth.OAuth2(
+      process.env.GOOGLE_CLIENT_ID,
+      process.env.GOOGLE_CLIENT_SECRET,
+      process.env.GOOGLE_OAUTH_REDIRECT
+    );
+    
+    this.isInitialized = false;
+    this.userTokens = null;
+  }
 
-      this.drive = google.drive({ version: 'v3', auth: this.auth });
-      this.docs = google.docs({ version: 'v1', auth: this.auth });
-      this.sheets = google.sheets({ version: 'v4', auth: this.auth });
-      this.slides = google.slides({ version: 'v1', auth: this.auth });
+  /**
+   * Initialize authenticated Google Drive client
+   */
+  async initializeClient(tokens) {
+    try {
+      this.oauth2Client.setCredentials(tokens);
+      this.userTokens = tokens;
       
-      this.isConfigured = !!(process.env.GOOGLE_PROJECT_ID && process.env.GOOGLE_PRIVATE_KEY);
+      this.drive = google.drive({ version: 'v3', auth: this.oauth2Client });
+      this.docs = google.docs({ version: 'v1', auth: this.oauth2Client });
+      this.sheets = google.sheets({ version: 'v4', auth: this.oauth2Client });
+      this.slides = google.slides({ version: 'v1', auth: this.oauth2Client });
       
-      if (this.isConfigured) {
-        logger.info('✅ Google Drive Service initialized with real API');
-      } else {
-        logger.warn('⚠️ Google Drive Service initialized in MOCK mode - credentials not configured');
-      }
+      this.isInitialized = true;
+      logger.info('✅ Google Drive client initialized for user');
     } catch (error) {
-      logger.error('❌ Google Drive Service initialization failed:', error);
-      this.isConfigured = false;
+      logger.error('❌ Failed to initialize Google Drive client:', error);
+      throw error;
     }
   }
 
   /**
-   * Check if Google Drive API is properly configured
-   */
-  isApiConfigured() {
-    return this.isConfigured;
-  }
-
-  /**
-   * Test API connection
+   * Test connection to Google Drive
    */
   async testConnection() {
-    if (!this.isConfigured) {
-      throw new Error('Google Drive API not configured');
-    }
-
     try {
       const response = await this.drive.about.get({
         fields: 'user,storageQuota'
@@ -69,165 +51,113 @@ class GoogleDriveService {
         connected: true,
         user: response.data.user?.displayName,
         email: response.data.user?.emailAddress,
-        quota: response.data.storageQuota
+        quotaUsed: this.formatBytes(response.data.storageQuota?.usage),
+        quotaTotal: this.formatBytes(response.data.storageQuota?.limit)
       };
     } catch (error) {
-      logger.error('Google Drive connection test failed:', error);
-      throw error;
+      logger.error('❌ Google Drive connection test failed:', error);
+      return {
+        connected: false,
+        error: error.message
+      };
     }
   }
 
   /**
-   * Search for files in Google Drive
+   * Search files in Google Drive with advanced filtering
    */
-  async searchFiles(query = '', folderId = null, pageSize = 50) {
-    if (!this.isConfigured) {
-      return this.getMockSearchResults(query, folderId);
-    }
-
+  async searchFiles(params = {}) {
     try {
-      let searchQuery = `trashed=false`;
+      const query = this.buildSearchQuery(params);
       
-      // Add folder filter if specified
-      if (folderId) {
-        searchQuery += ` and '${folderId}' in parents`;
-      } else if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
-        searchQuery += ` and '${process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID}' in parents`;
-      }
-      
-      // Add text search if specified
-      if (query) {
-        searchQuery += ` and fullText contains '${query}'`;
-      }
-
-      // Add file type filters (documents, spreadsheets, presentations, PDFs)
-      searchQuery += ` and (mimeType='application/vnd.google-apps.document' or mimeType='application/vnd.google-apps.spreadsheet' or mimeType='application/vnd.google-apps.presentation' or mimeType='application/pdf' or mimeType='application/vnd.openxmlformats-officedocument.wordprocessingml.document')`;
-
       const response = await this.drive.files.list({
-        q: searchQuery,
-        pageSize,
-        fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, owners, parents, webViewLink, webContentLink)',
-        orderBy: 'modifiedTime desc'
+        q: query,
+        fields: 'files(id,name,mimeType,size,createdTime,modifiedTime,webViewLink,owners,parents,thumbnailLink,exportLinks)',
+        pageSize: params.pageSize || 50,
+        orderBy: params.orderBy || 'modifiedTime desc',
+        pageToken: params.pageToken
       });
 
+      const files = response.data.files || [];
+      logger.info(`📂 Found ${files.length} files in Google Drive`);
+      
       return {
-        files: response.data.files || [],
+        files: files.map(this.formatFileMetadata),
         nextPageToken: response.data.nextPageToken
       };
     } catch (error) {
-      logger.error('Google Drive search failed:', error);
-      throw new Error(`Failed to search Google Drive: ${error.message}`);
+      logger.error('❌ Google Drive search failed:', error);
+      throw new Error(`Google Drive search failed: ${error.message}`);
     }
   }
 
   /**
-   * Get all files from folder (with recursion support)
+   * Get detailed file information
    */
-  async getAllFilesFromFolder(folderId, recursive = false) {
-    if (!this.isConfigured) {
-      return this.getMockSearchResults('', folderId).files;
-    }
-
+  async getFileDetails(fileId) {
     try {
-      let allFiles = [];
-      let nextPageToken = null;
-
-      do {
-        const response = await this.drive.files.list({
-          q: `'${folderId}' in parents and trashed=false`,
-          pageSize: 100,
-          pageToken: nextPageToken,
-          fields: 'nextPageToken, files(id, name, mimeType, size, createdTime, modifiedTime, owners, parents, webViewLink)',
-          orderBy: 'modifiedTime desc'
-        });
-
-        const files = response.data.files || [];
-        
-        for (const file of files) {
-          if (file.mimeType === 'application/vnd.google-apps.folder') {
-            // If recursive, get files from subfolder
-            if (recursive) {
-              const subFiles = await this.getAllFilesFromFolder(file.id, recursive);
-              allFiles.push(...subFiles);
-            }
-          } else {
-            // Add non-folder files
-            allFiles.push(file);
-          }
-        }
-
-        nextPageToken = response.data.nextPageToken;
-      } while (nextPageToken);
-
-      return allFiles;
-    } catch (error) {
-      logger.error('Failed to get all files from folder:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get folder structure
-   */
-  async getFolders(parentId = null) {
-    if (!this.isConfigured) {
-      return this.getMockFolders();
-    }
-
-    try {
-      let query = `mimeType='application/vnd.google-apps.folder' and trashed=false`;
-      
-      if (parentId) {
-        query += ` and '${parentId}' in parents`;
-      } else if (process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID) {
-        query += ` and '${process.env.GOOGLE_DRIVE_ROOT_FOLDER_ID}' in parents`;
-      } else {
-        query += ` and 'root' in parents`;
-      }
-
-      const response = await this.drive.files.list({
-        q: query,
-        fields: 'files(id, name, parents, createdTime, modifiedTime)',
-        orderBy: 'name'
+      const response = await this.drive.files.get({
+        fileId,
+        fields: 'id,name,mimeType,size,createdTime,modifiedTime,webViewLink,webContentLink,owners,parents,permissions,thumbnailLink,exportLinks'
       });
 
-      return response.data.files || [];
+      return this.formatFileMetadata(response.data);
     } catch (error) {
-      logger.error('Failed to get folders:', error);
+      logger.error(`❌ Failed to get file details for ${fileId}:`, error);
       throw error;
     }
   }
 
   /**
-   * Extract text content from different file types
+   * Extract content from various file types
    */
-  async extractTextContent(fileId, mimeType) {
-    if (!this.isConfigured) {
-      return `Mock text content for file ${fileId} of type ${mimeType}. This is sample content that would be extracted from a real Google Drive document. It contains keywords like meeting, project, and important information.`;
-    }
-
+  async extractFileContent(fileId, mimeType) {
     try {
-      switch (mimeType) {
-        case 'application/vnd.google-apps.document':
-          return await this.extractGoogleDocsText(fileId);
-          
-        case 'application/vnd.google-apps.spreadsheet':
-          return await this.extractGoogleSheetsText(fileId);
-          
-        case 'application/vnd.google-apps.presentation':
-          return await this.extractGoogleSlidesText(fileId);
-          
-        case 'application/pdf':
-          return await this.extractPDFText(fileId);
-          
-        case 'application/vnd.openxmlformats-officedocument.wordprocessingml.document':
-          return await this.extractWordText(fileId);
-          
-        default:
-          throw new Error(`Unsupported file type: ${mimeType}`);
+      let content = '';
+
+      if (mimeType.includes('document')) {
+        // Google Docs
+        content = await this.extractGoogleDocsText(fileId);
+      } else if (mimeType.includes('spreadsheet')) {
+        // Google Sheets
+        content = await this.extractGoogleSheetsText(fileId);
+      } else if (mimeType.includes('presentation')) {
+        // Google Slides
+        content = await this.extractGoogleSlidesText(fileId);
+      } else if (mimeType === 'text/plain') {
+        // Plain text files
+        const response = await this.drive.files.get({
+          fileId,
+          alt: 'media'
+        });
+        content = response.data;
+      } else if (mimeType === 'application/pdf') {
+        // PDF files
+        content = await this.extractPDFText(fileId);
+      } else if (mimeType.includes('wordprocessingml.document')) {
+        // Word documents
+        content = await this.extractWordText(fileId);
+      } else {
+        // Try to export as plain text
+        try {
+          const response = await this.drive.files.export({
+            fileId,
+            mimeType: 'text/plain'
+          });
+          content = response.data;
+        } catch (exportError) {
+          logger.warn(`⚠️ Cannot extract content from ${mimeType}`);
+          content = `Content extraction not supported for ${mimeType}`;
+        }
       }
+
+      return {
+        content: content.trim(),
+        wordCount: content.split(/\s+/).length,
+        charCount: content.length
+      };
     } catch (error) {
-      logger.error(`Failed to extract text from file ${fileId}:`, error);
+      logger.error(`❌ Content extraction failed for ${fileId}:`, error);
       throw error;
     }
   }
@@ -237,37 +167,10 @@ class GoogleDriveService {
    */
   async extractGoogleDocsText(docId) {
     try {
-      const response = await this.docs.documents.get({
-        documentId: docId
-      });
-
-      let text = '';
-      const content = response.data.body?.content || [];
-
-      const extractTextFromElements = (elements) => {
-        elements.forEach(element => {
-          if (element.paragraph) {
-            element.paragraph.elements?.forEach(elem => {
-              if (elem.textRun) {
-                text += elem.textRun.content || '';
-              }
-            });
-          } else if (element.table) {
-            element.table.tableRows?.forEach(row => {
-              row.tableCells?.forEach(cell => {
-                if (cell.content) {
-                  extractTextFromElements(cell.content);
-                }
-              });
-            });
-          }
-        });
-      };
-
-      extractTextFromElements(content);
-      return text.trim();
+      const doc = await this.docs.documents.get({ documentId: docId });
+      return this.extractTextFromGoogleDoc(doc.data);
     } catch (error) {
-      logger.error(`Failed to extract Google Docs text:`, error);
+      logger.error(`❌ Failed to extract Google Docs text:`, error);
       throw error;
     }
   }
@@ -277,35 +180,13 @@ class GoogleDriveService {
    */
   async extractGoogleSheetsText(sheetId) {
     try {
-      const response = await this.sheets.spreadsheets.get({
+      const response = await this.sheets.spreadsheets.get({ 
         spreadsheetId: sheetId,
         includeGridData: true
       });
-
-      let text = '';
-      const sheets = response.data.sheets || [];
-
-      sheets.forEach(sheet => {
-        const title = sheet.properties?.title || '';
-        text += `Sheet: ${title}\n`;
-
-        const gridData = sheet.data?.[0]?.rowData || [];
-        gridData.forEach(row => {
-          const values = row.values || [];
-          const rowText = values
-            .map(cell => cell.formattedValue || '')
-            .filter(value => value.trim())
-            .join(' | ');
-          
-          if (rowText) {
-            text += rowText + '\n';
-          }
-        });
-      });
-
-      return text.trim();
+      return this.extractTextFromGoogleSheet(response.data);
     } catch (error) {
-      logger.error(`Failed to extract Google Sheets text:`, error);
+      logger.error(`❌ Failed to extract Google Sheets text:`, error);
       throw error;
     }
   }
@@ -315,54 +196,34 @@ class GoogleDriveService {
    */
   async extractGoogleSlidesText(presentationId) {
     try {
-      const response = await this.slides.presentations.get({
-        presentationId: presentationId
+      const response = await this.slides.presentations.get({ 
+        presentationId: presentationId 
       });
-
-      let text = '';
-      const slides = response.data.slides || [];
-
-      slides.forEach((slide, index) => {
-        text += `Slide ${index + 1}:\n`;
-        
-        const pageElements = slide.pageElements || [];
-        pageElements.forEach(element => {
-          if (element.shape?.text?.textElements) {
-            element.shape.text.textElements.forEach(textElement => {
-              if (textElement.textRun) {
-                text += textElement.textRun.content || '';
-              }
-            });
-          }
-        });
-        
-        text += '\n\n';
-      });
-
-      return text.trim();
+      return this.extractTextFromGoogleSlides(response.data);
     } catch (error) {
-      logger.error(`Failed to extract Google Slides text:`, error);
+      logger.error(`❌ Failed to extract Google Slides text:`, error);
       throw error;
     }
   }
 
-  // Extract text from PDF files
-async extractPDFText(fileId) {
-  try {
-    const response = await this.drive.files.get({
-      fileId: fileId,
-      alt: 'media'
-    }, { responseType: 'arraybuffer' }); // Add responseType
-    
-    const buffer = Buffer.from(response.data);
-    const pdfData = await pdfParse(buffer);
-    return pdfData.text;
-  } catch (error) {
-    logger.error('Failed to extract PDF text:', error);
-    throw error;
-  }
-}
+  /**
+   * Extract text from PDF files
+   */
+  async extractPDFText(fileId) {
+    try {
+      const response = await this.drive.files.get({
+        fileId: fileId,
+        alt: 'media'
+      }, { responseType: 'arraybuffer' });
 
+      const buffer = Buffer.from(response.data);
+      const pdfData = await pdfParse(buffer);
+      return pdfData.text;
+    } catch (error) {
+      logger.error('❌ Failed to extract PDF text:', error);
+      throw error;
+    }
+  }
 
   /**
    * Extract text from Word documents
@@ -372,83 +233,457 @@ async extractPDFText(fileId) {
       const response = await this.drive.files.get({
         fileId: fileId,
         alt: 'media'
-      });
+      }, { responseType: 'arraybuffer' });
 
       const buffer = Buffer.from(response.data);
       const result = await mammoth.extractRawText({ buffer });
-      
       return result.value;
     } catch (error) {
-      logger.error(`Failed to extract Word text:`, error);
+      logger.error(`❌ Failed to extract Word text:`, error);
       throw error;
     }
   }
 
   /**
-   * Get file metadata
+   * Get folders for navigation
    */
-  async getFileInfo(fileId) {
-    if (!this.isConfigured) {
-      return {
-        id: fileId,
-        name: `Mock File ${fileId}`,
-        mimeType: 'application/vnd.google-apps.document',
-        webViewLink: `https://docs.google.com/document/d/${fileId}`,
-        size: '15420',
-        createdTime: new Date().toISOString(),
-        modifiedTime: new Date().toISOString()
-      };
-    }
-
+  async getFolders(parentId = null) {
     try {
-      const response = await this.drive.files.get({
-        fileId,
-        fields: 'id, name, mimeType, size, createdTime, modifiedTime, owners, parents, webViewLink, webContentLink'
+      let query = "mimeType='application/vnd.google-apps.folder' and trashed=false";
+      if (parentId) {
+        query += ` and '${parentId}' in parents`;
+      } else {
+        query += " and 'root' in parents";
+      }
+
+      const response = await this.drive.files.list({
+        q: query,
+        fields: 'files(id,name,parents,createdTime,modifiedTime)',
+        orderBy: 'name'
       });
 
-      return response.data;
+      return response.data.files || [];
     } catch (error) {
-      logger.error(`Failed to get file info for ${fileId}:`, error);
+      logger.error('❌ Failed to get folders:', error);
       throw error;
     }
   }
 
-  // Mock data methods (fallback when API not configured)
-  getMockFolders() {
-    return [
-      {
-        id: 'mock-folder-1',
-        name: '📄 Team Documents',
-        parents: ['root'],
-        createdTime: new Date('2025-01-01').toISOString(),
-        modifiedTime: new Date().toISOString()
-      },
-      {
-        id: 'mock-folder-2',
-        name: '🚀 Projects',
-        parents: ['root'],
-        createdTime: new Date('2025-01-15').toISOString(),
-        modifiedTime: new Date().toISOString()
+  /**
+   * Setup push notifications for Drive changes
+   */
+  async setupPushNotifications(config) {
+    try {
+      const { userId, folders, webhookUrl } = config;
+      
+      const channelId = `drive_${userId}_${Date.now()}`;
+      const channelToken = process.env.GOOGLE_DRIVE_WEBHOOK_TOKEN;
+      
+      const requestBody = {
+        id: channelId,
+        type: 'web_hook',
+        address: webhookUrl,
+        token: channelToken,
+        expiration: Date.now() + (7 * 24 * 60 * 60 * 1000) // 7 days
+      };
+
+      let resource;
+      if (folders && folders.length > 0) {
+        // Watch specific folders
+        const subscriptions = [];
+        for (const folderId of folders) {
+          const response = await this.drive.files.watch({
+            fileId: folderId,
+            requestBody
+          });
+          subscriptions.push(response.data);
+        }
+        resource = subscriptions[0];
+      } else {
+        // Watch entire drive
+        const response = await this.drive.changes.watch({
+          pageToken: await this.getStartPageToken(),
+          requestBody
+        });
+        resource = response.data;
       }
-    ];
+
+      logger.info(`✅ Setup Drive push notifications: ${channelId}`);
+      return {
+        id: channelId,
+        resourceId: resource.resourceId,
+        expiration: resource.expiration
+      };
+    } catch (error) {
+      logger.error('❌ Failed to setup Drive push notifications:', error);
+      throw error;
+    }
   }
 
-  getMockSearchResults(query, folderId) {
-    return {
-      files: [
-        {
-          id: 'mock-doc-1',
-          name: `${query || 'Sample'} Document.docx`,
-          mimeType: 'application/vnd.google-apps.document',
-          size: '15420',
-          webViewLink: 'https://docs.google.com/document/d/mock-doc-1',
-          owners: [{ displayName: 'Mock User', emailAddress: 'mock@example.com' }],
-          createdTime: new Date().toISOString(),
-          modifiedTime: new Date().toISOString()
+  /**
+   * Stop push notifications
+   */
+  async stopPushNotifications(channelId, resourceId) {
+    try {
+      await this.drive.channels.stop({
+        requestBody: {
+          id: channelId,
+          resourceId: resourceId
         }
-      ],
-      nextPageToken: null
+      });
+      
+      logger.info(`✅ Stopped Drive push notifications: ${channelId}`);
+    } catch (error) {
+      logger.error('❌ Failed to stop Drive push notifications:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get changes since last sync
+   */
+  async getChanges(pageToken) {
+    try {
+      const response = await this.drive.changes.list({
+        pageToken,
+        includeRemoved: true,
+        fields: 'changes(file(id,name,mimeType,modifiedTime,trashed),removed),newStartPageToken'
+      });
+
+      return {
+        files: response.data.changes || [],
+        newStartPageToken: response.data.newStartPageToken
+      };
+    } catch (error) {
+      logger.error('❌ Failed to get Drive changes:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get start page token for changes
+   */
+  async getStartPageToken() {
+    try {
+      const response = await this.drive.changes.getStartPageToken();
+      return response.data.startPageToken;
+    } catch (error) {
+      logger.error('❌ Failed to get start page token:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Setup Slack Events API subscription
+   */
+  async setupEventsSubscription(config) {
+    try {
+      const { userId, teamId, channels, events } = config;
+      
+      logger.info(`✅ Setup Slack events subscription for team ${teamId}`);
+      return {
+        teamId,
+        channels: channels || [],
+        events: events || ['message', 'file_shared'],
+        userId
+      };
+    } catch (error) {
+      logger.error('❌ Failed to setup Slack events subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get file information from Slack
+   */
+  async getFileInfo(fileId) {
+    try {
+      const response = await this.client.files.info({
+        file: fileId
+      });
+      
+      return response.file;
+    } catch (error) {
+      logger.error(`❌ Failed to get Slack file info: ${fileId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Download file content from Slack
+   */
+  async downloadFile(fileId) {
+    try {
+      const fileInfo = await this.getFileInfo(fileId);
+      
+      if (!fileInfo.url_private) {
+        throw new Error('File URL not available');
+      }
+
+      const response = await fetch(fileInfo.url_private, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+      }
+
+      const buffer = await response.buffer();
+      
+      return {
+        ...fileInfo,
+        content: buffer
+      };
+    } catch (error) {
+      logger.error(`❌ Failed to download Slack file: ${fileId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send message to Slack channel
+   */
+  async sendMessage(channelId, message) {
+    try {
+      const response = await this.client.chat.postMessage({
+        channel: channelId,
+        ...message
+      });
+      
+      return response;
+    } catch (error) {
+      logger.error('❌ Failed to send Slack message:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send search results to Slack
+   */
+  async sendSearchResults(channelId, query, results) {
+    try {
+      const blocks = this.formatSearchResultsBlocks(query, results);
+      
+      await this.sendMessage(channelId, {
+        text: `Search results for: "${query}"`,
+        blocks
+      });
+    } catch (error) {
+      logger.error('❌ Failed to send search results to Slack:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Build search query from parameters
+   */
+  buildSearchQuery(params) {
+    let query = "trashed=false";
+
+    if (params.query) {
+      query += ` and fullText contains '${params.query}'`;
+    }
+
+    if (params.mimeType) {
+      query += ` and mimeType='${params.mimeType}'`;
+    }
+
+    if (params.folder) {
+      query += ` and '${params.folder}' in parents`;
+    }
+
+    if (params.owner) {
+      query += ` and '${params.owner}' in owners`;
+    }
+
+    if (params.modifiedAfter) {
+      query += ` and modifiedTime > '${params.modifiedAfter}'`;
+    }
+
+    return query;
+  }
+
+  /**
+   * Format file metadata for consistent API response
+   */
+  formatFileMetadata(file) {
+    return {
+      id: file.id,
+      name: file.name,
+      mimeType: file.mimeType,
+      size: file.size,
+      createdTime: file.createdTime,
+      modifiedTime: file.modifiedTime,
+      webViewLink: file.webViewLink,
+      webContentLink: file.webContentLink,
+      owners: file.owners,
+      parents: file.parents,
+      thumbnailLink: file.thumbnailLink,
+      exportLinks: file.exportLinks
     };
+  }
+
+  /**
+   * Extract text from Google Docs
+   */
+  extractTextFromGoogleDoc(doc) {
+    let text = '';
+    
+    if (doc.body?.content) {
+      for (const element of doc.body.content) {
+        if (element.paragraph?.elements) {
+          for (const textElement of element.paragraph.elements) {
+            if (textElement.textRun?.content) {
+              text += textElement.textRun.content;
+            }
+          }
+        }
+        if (element.table) {
+          for (const row of element.table.tableRows || []) {
+            for (const cell of row.tableCells || []) {
+              if (cell.content) {
+                for (const cellElement of cell.content) {
+                  if (cellElement.paragraph?.elements) {
+                    for (const textElement of cellElement.paragraph.elements) {
+                      if (textElement.textRun?.content) {
+                        text += textElement.textRun.content;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return text;
+  }
+
+  /**
+   * Extract text from Google Sheets
+   */
+  extractTextFromGoogleSheet(sheet) {
+    let text = '';
+    
+    if (sheet.sheets) {
+      for (const sheetTab of sheet.sheets) {
+        text += `Sheet: ${sheetTab.properties?.title}\n`;
+        if (sheetTab.data?.[0]?.rowData) {
+          for (const row of sheetTab.data[0].rowData) {
+            if (row.values) {
+              const rowText = row.values
+                .map(cell => cell.formattedValue || '')
+                .join('\t');
+              if (rowText.trim()) {
+                text += rowText + '\n';
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return text;
+  }
+
+  /**
+   * Extract text from Google Slides
+   */
+  extractTextFromGoogleSlides(presentation) {
+    let text = '';
+    
+    if (presentation.slides) {
+      for (const [index, slide] of presentation.slides.entries()) {
+        text += `Slide ${index + 1}:\n`;
+        if (slide.pageElements) {
+          for (const element of slide.pageElements) {
+            if (element.shape?.text?.textElements) {
+              for (const textElement of element.shape.text.textElements) {
+                if (textElement.textRun?.content) {
+                  text += textElement.textRun.content;
+                }
+              }
+            }
+          }
+        }
+        text += '\n\n';
+      }
+    }
+
+    return text;
+  }
+
+  /**
+   * Format search results as Slack blocks
+   */
+  formatSearchResultsBlocks(query, results) {
+    const blocks = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Search results for:* "${query}"`
+        }
+      },
+      {
+        type: 'divider'
+      }
+    ];
+
+    results.slice(0, 5).forEach((result, index) => {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${index + 1}.* ${result.payload.text.substring(0, 200)}...`
+        },
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Source:* ${result.payload.sourceType}`
+          },
+          {
+            type: 'mrkdwn',
+            text: `*Score:* ${(result.score * 100).toFixed(1)}%`
+          }
+        ]
+      });
+    });
+
+    return blocks;
+  }
+
+  /**
+   * Format bytes to human readable format
+   */
+  formatBytes(bytes) {
+    if (!bytes) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  /**
+   * Get service instance for specific user
+   */
+  static async getServiceForUser(userId) {
+    const User = require('../models/mongodb/user.model');
+    const user = await User.findById(userId);
+    
+    if (!user?.oauth?.google?.tokens) {
+      throw new Error('Google Drive not connected for user');
+    }
+
+    const service = new GoogleDriveService();
+    await service.initializeClient(user.oauth.google.tokens);
+    return service;
   }
 }
 

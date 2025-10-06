@@ -27,13 +27,28 @@ const validateLogin = [
     .withMessage('Password is required')
 ];
 
-// FIXED Slack validators
+// ✅ UPDATED: More flexible Slack validators for testing
 const validateSlackIngest = [
   body('channelId')
-    .notEmpty()
-    .withMessage('Channel ID is required')
+    .optional()  // Made optional for testing
     .matches(/^[C][0-9A-Z]+$/)
     .withMessage('Invalid Slack channel ID format'),
+  body('channel')
+    .optional()  // Accept both channelId and channel
+    .isLength({ min: 1 })
+    .withMessage('Channel cannot be empty'),
+  body('text')
+    .optional()  // Allow manual text input
+    .isLength({ min: 1 })
+    .withMessage('Text content is required'),
+  body('user')
+    .optional()
+    .isLength({ min: 1 })
+    .withMessage('User cannot be empty'),
+  body('timestamp')
+    .optional()
+    .isISO8601()
+    .withMessage('Timestamp must be in ISO 8601 format'),
   body('since')
     .optional()
     .isISO8601()
@@ -105,7 +120,7 @@ const validateDriveIngest = [
     .withMessage('Since date must be in ISO 8601 format')
 ];
 
-// Query validators
+// ✅ UPDATED: More flexible query validators
 const validateSearch = [
   body('query')
     .notEmpty()
@@ -116,6 +131,10 @@ const validateSearch = [
     .optional()
     .isInt({ min: 1, max: 100 })
     .withMessage('TopK must be between 1 and 100'),
+  body('source')
+    .optional()  // Make source optional
+    .isIn(['slack', 'google-drive', 'all'])
+    .withMessage('Source must be slack, google-drive, or all'),
   body('filters')
     .optional()
     .isObject()

@@ -1,32 +1,111 @@
 const { WebClient } = require('@slack/web-api');
 const crypto = require('crypto');
 const logger = require('../utils/logger');
-const vectorService = require('./vector.service');
 
 class SlackService {
   constructor() {
-    this.client = new WebClient(process.env.SLACK_BOT_TOKEN);
+    this.client = null;
     this.isInitialized = false;
     this.userCache = new Map();
     this.channelCache = new Map();
+    this.token = null;
   }
 
-  async initialize() {
+  /**
+   * Initialize Slack client with user token
+   */
+  async initializeClient(token) {
     try {
-      const auth = await this.client.auth.test();
+      if (!token) {
+        throw new Error('No Slack token provided');
+      }
+      
+      this.token = token;
+      this.client = new WebClient(token, {
+        // Add retry configuration
+        retryConfig: {
+          retries: 3,
+          factor: 2,
+          minTimeout: 1000,
+          maxTimeout: 5000,
+        },
+        // Add logging
+        logger: {
+          debug: (...msgs) => logger.debug('Slack Client Debug:', ...msgs),
+          log: (...msgs) => logger.info('Slack Client Log:', ...msgs),
+          info: (...msgs) => logger.info('Slack Client Info:', ...msgs),
+          warn: (...msgs) => logger.warn('Slack Client Warning:', ...msgs),
+          error: (...msgs) => logger.error('Slack Client Error:', ...msgs)
+        }
+      });
+      
+      logger.info('Testing Slack API connection...');
+      const auth = await this.client.auth.test().catch(err => {
+        logger.error('Slack auth test failed:', {
+          code: err.code,
+          message: err.message,
+          data: err.data
+        });
+        throw new Error(`Slack API error (${err.code || 'unknown'}): ${err.message}`);
+      });
+      
+      if (!auth.ok) {
+        throw new Error(`Slack auth test failed: ${auth.error || 'Unknown error'}`);
+      }
+      
       this.botUserId = auth.user_id;
       this.teamId = auth.team_id;
-      this.teamDomain = auth.url.replace('https://', '').replace('.slack.com/', '');
+      this.teamName = auth.team;
+      this.teamDomain = auth.url ? auth.url.replace('https://', '').replace('.slack.com/', '') : 'unknown';
       this.isInitialized = true;
-      logger.info(`✅ Slack service initialized for team: ${auth.team}`);
+      
+      logger.info('✅ Slack client initialized', {
+        team: this.teamName,
+        userId: this.botUserId,
+        teamId: this.teamId
+      });
+      
       return true;
     } catch (error) {
-      logger.error('Slack initialization failed:', error);
+      this.isInitialized = false;
+      logger.error('❌ Slack client initialization failed:', {
+        error: error.message,
+        code: error.code,
+        stack: error.stack
+      });
       throw error;
     }
   }
 
-  // Auto-join a specific channel
+  /**
+   * Test connection to Slack
+   */
+  async testConnection() {
+    try {
+      if (!this.isInitialized) {
+        throw new Error('Slack client not initialized');
+      }
+      
+      const auth = await this.client.auth.test();
+      return {
+        connected: true,
+        team: auth.team,
+        user: auth.user,
+        teamId: auth.team_id,
+        userId: auth.user_id
+      };
+    } catch (error) {
+      logger.error('❌ Slack connection test failed:', error);
+      return {
+        connected: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
+   * Auto-join a specific channel
+   */
   async joinChannel(channelId) {
     try {
       await this.client.conversations.join({ channel: channelId });
@@ -38,7 +117,7 @@ class SlackService {
         return true;
       } else if (error.data?.error === 'cant_join_general') {
         logger.info(`Bot cannot join #general channel: ${channelId}`);
-        return true; // Not an error, just a limitation
+        return true;
       } else if (error.data?.error === 'channel_not_found') {
         logger.warn(`Channel not found: ${channelId}`);
         return false;
@@ -49,48 +128,15 @@ class SlackService {
         logger.warn(`Access denied to private channel: ${channelId}`);
         return false;
       }
-      
+
       logger.error(`Failed to join channel ${channelId}:`, error.data?.error || error.message);
       return false;
     }
   }
 
-  // Auto-join all public channels
-  async autoJoinAllChannels() {
-    try {
-      const channels = await this.getChannels();
-      const publicChannels = channels.filter(c => !c.isPrivate);
-      
-      logger.info(`Attempting to join ${publicChannels.length} public channels...`);
-      
-      const results = {
-        attempted: publicChannels.length,
-        joined: 0,
-        alreadyIn: 0,
-        failed: 0
-      };
-      
-      for (const channel of publicChannels) {
-        const success = await this.joinChannel(channel.id);
-        if (success) {
-          results.joined++;
-        } else {
-          results.failed++;
-        }
-        
-        // Rate limiting
-        await new Promise(resolve => setTimeout(resolve, 1000));
-      }
-      
-      logger.info(`✅ Channel join results: ${results.joined} joined, ${results.failed} failed`);
-      return results;
-    } catch (error) {
-      logger.error('Auto-join channels failed:', error);
-      throw error;
-    }
-  }
-
-  // Get all channels
+  /**
+   * Get all channels
+   */
   async getChannels() {
     try {
       if (!this.isInitialized) await this.initialize();
@@ -120,12 +166,14 @@ class SlackService {
         isMember: channel.is_member || false
       }));
     } catch (error) {
-      logger.error('Failed to get channels:', error);
+      logger.error('❌ Failed to get channels:', error);
       throw error;
     }
   }
 
-  // Get messages from a channel
+  /**
+   * Get messages from a channel
+   */
   async getChannelMessages(channelId, options = {}) {
     try {
       if (!this.isInitialized) await this.initialize();
@@ -158,7 +206,6 @@ class SlackService {
         for (const message of response.messages) {
           // Skip bot messages and system messages
           if (message.subtype || message.bot_id) continue;
-          
           // Skip empty messages
           if (!message.text || message.text.trim().length === 0) continue;
 
@@ -179,12 +226,15 @@ class SlackService {
         logger.error(`Bot not in channel ${channelId}. Please invite the bot manually to this channel.`);
         throw new Error(`Bot not in channel ${channelId}. Please invite the bot to this channel in Slack.`);
       }
+
       logger.error(`Failed to get messages from channel ${channelId}:`, error);
       throw error;
     }
   }
 
-  // Format message for vector storage
+  /**
+   * Format message for vector storage
+   */
   async formatMessage(message, channelId) {
     try {
       // Get user and channel info
@@ -221,12 +271,14 @@ class SlackService {
         }
       };
     } catch (error) {
-      logger.error('Failed to format message:', error);
+      logger.error('❌ Failed to format message:', error);
       throw error;
     }
   }
 
-  // Get user info (with caching)
+  /**
+   * Get user info (with caching)
+   */
   async getUserInfo(userId) {
     if (this.userCache.has(userId)) {
       return this.userCache.get(userId);
@@ -242,7 +294,7 @@ class SlackService {
         email: response.user.profile?.email,
         image: response.user.profile?.image_72
       };
-      
+
       this.userCache.set(userId, user);
       return user;
     } catch (error) {
@@ -251,7 +303,9 @@ class SlackService {
     }
   }
 
-  // Get channel info (with caching)
+  /**
+   * Get channel info (with caching)
+   */
   async getChannelInfo(channelId) {
     if (this.channelCache.has(channelId)) {
       return this.channelCache.get(channelId);
@@ -266,7 +320,7 @@ class SlackService {
         topic: response.channel.topic?.value || '',
         purpose: response.channel.purpose?.value || ''
       };
-      
+
       this.channelCache.set(channelId, channel);
       return channel;
     } catch (error) {
@@ -275,202 +329,193 @@ class SlackService {
     }
   }
 
-  // Replace user mentions with readable names
+  /**
+   * Replace user mentions with readable names
+   */
   async replaceMentions(text) {
     const mentionPattern = /<@([U][A-Z0-9]+)>/g;
     let result = text;
     const matches = [...text.matchAll(mentionPattern)];
-    
+
     for (const match of matches) {
       const userId = match[1];
       const user = await this.getUserInfo(userId);
       result = result.replace(match[0], `@${user.display_name || user.name}`);
     }
-    
+
     return result;
   }
 
-  // Replace channel mentions with readable names
+  /**
+   * Replace channel mentions with readable names
+   */
   async replaceChannelMentions(text) {
     const channelPattern = /<#([C][A-Z0-9]+)\|([^>]+)>/g;
     let result = text;
     const matches = [...text.matchAll(channelPattern)];
-    
+
     for (const match of matches) {
       const channelName = match[2];
       result = result.replace(match[0], `#${channelName}`);
     }
-    
+
     return result;
   }
 
-  // Ingest channel messages into vector database
-  async ingestChannel(channelId, options = {}) {
+  /**
+   * Get file information from Slack
+   */
+  async getFileInfo(fileId) {
     try {
-      logger.info(`Starting ingestion for channel: ${channelId}`);
-      
-      // Try to join channel first
-      await this.joinChannel(channelId);
-      
-      const messages = await this.getChannelMessages(channelId, options);
-      
-      if (messages.length === 0) {
-        logger.info(`No messages to ingest from channel ${channelId}`);
-        return { channelId, processed: 0, stored: 0 };
-      }
-
-      // Store messages in vector database with delays
-      let stored = 0;
-      const errors = [];
-      
-      for (const message of messages) {
-        try {
-          await vectorService.storeVector(message.id, message.text, message.metadata);
-          stored++;
-          
-          if (stored % 10 === 0) {
-            logger.info(`Progress: ${stored}/${messages.length} messages stored`);
-          }
-          
-          // Add delay to avoid rate limiting
-          await new Promise(resolve => setTimeout(resolve, 500));
-        } catch (error) {
-          logger.error(`Failed to store message ${message.id}:`, error.message);
-          errors.push({
-            messageId: message.id,
-            error: error.message
-          });
-        }
-      }
-      
-      logger.info(`✅ Ingested ${stored}/${messages.length} messages from channel ${channelId}`);
-      
-      return {
-        channelId,
-        processed: messages.length,
-        stored: stored,
-        failed: errors.length,
-        errors: errors.slice(0, 5) // Only return first 5 errors
-      };
-    } catch (error) {
-      logger.error(`Channel ingestion failed for ${channelId}:`, error);
-      throw error;
-    }
-  }
-
-  // Bulk ingest multiple channels
-  async bulkIngestChannels(channelIds, options = {}) {
-    try {
-      logger.info(`Starting bulk ingestion for ${channelIds.length} channels`);
-      
-      const results = [];
-      let totalStored = 0;
-      
-      for (const channelId of channelIds) {
-        try {
-          logger.info(`Processing channel ${channelId}...`);
-          const result = await this.ingestChannel(channelId, options);
-          results.push(result);
-          totalStored += result.stored;
-          
-          // Delay between channels to avoid rate limits
-          await new Promise(resolve => setTimeout(resolve, 3000));
-        } catch (error) {
-          logger.error(`Failed to ingest channel ${channelId}:`, error);
-          results.push({
-            channelId,
-            processed: 0,
-            stored: 0,
-            failed: 1,
-            error: error.message
-          });
-        }
-      }
-      
-      logger.info(`✅ Bulk ingestion completed: ${totalStored} total messages stored`);
-      
-      return {
-        channels: results,
-        totalStored,
-        totalProcessed: results.reduce((sum, r) => sum + (r.processed || 0), 0),
-        totalFailed: results.reduce((sum, r) => sum + (r.failed || 0), 0)
-      };
-    } catch (error) {
-      logger.error('Bulk ingestion failed:', error);
-      throw error;
-    }
-  }
-
-  // Search messages (using existing vector search)
-  async searchMessages(query, options = {}) {
-    try {
-      const {
-        limit = 10,
-        channelId = null,
-        userId = null,
-        startDate = null,
-        endDate = null
-      } = options;
-
-      const filters = { source: 'slack' };
-      if (channelId) filters.channelId = channelId;
-      if (userId) filters.userId = userId;
-
-      const results = await vectorService.searchSimilar(query, limit, filters);
-      
-      // Filter by date if provided
-      let filteredResults = results;
-      if (startDate || endDate) {
-        filteredResults = results.filter(result => {
-          const messageDate = new Date(result.metadata.timestamp);
-          if (startDate && messageDate < new Date(startDate)) return false;
-          if (endDate && messageDate > new Date(endDate)) return false;
-          return true;
-        });
-      }
-
-      return filteredResults.map(result => ({
-        ...result,
-        url: result.metadata.permalink,
-        channel: result.metadata.channelName,
-        user: result.metadata.userName,
-        timestamp: result.metadata.timestamp
-      }));
-    } catch (error) {
-      logger.error('Slack search failed:', error);
-      throw error;
-    }
-  }
-
-  // Get channel membership status
-  async getChannelMembership(channelId) {
-    try {
-      const response = await this.client.conversations.members({
-        channel: channelId,
-        limit: 1
+      const response = await this.client.files.info({
+        file: fileId
       });
       
-      return {
-        isMember: true,
-        memberCount: response.members?.length || 0
-      };
+      return response.file;
     } catch (error) {
-      if (error.data?.error === 'not_in_channel') {
-        return { isMember: false, memberCount: 0 };
-      }
+      logger.error(`❌ Failed to get Slack file info: ${fileId}`, error);
       throw error;
     }
   }
 
-  // Health check method
+  /**
+   * Download file content from Slack
+   */
+  async downloadFile(fileId) {
+    try {
+      const fileInfo = await this.getFileInfo(fileId);
+      
+      if (!fileInfo.url_private) {
+        throw new Error('File URL not available');
+      }
+
+      // Download file content
+      const response = await fetch(fileInfo.url_private, {
+        headers: {
+          'Authorization': `Bearer ${this.token}`
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to download file: ${response.statusText}`);
+      }
+
+      const buffer = await response.buffer();
+      
+      return {
+        ...fileInfo,
+        content: buffer
+      };
+    } catch (error) {
+      logger.error(`❌ Failed to download Slack file: ${fileId}`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send message to Slack channel
+   */
+  async sendMessage(channelId, message) {
+    try {
+      const response = await this.client.chat.postMessage({
+        channel: channelId,
+        ...message
+      });
+      
+      return response;
+    } catch (error) {
+      logger.error('❌ Failed to send Slack message:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Send search results to Slack
+   */
+  async sendSearchResults(channelId, query, results) {
+    try {
+      const blocks = this.formatSearchResultsBlocks(query, results);
+      
+      await this.sendMessage(channelId, {
+        text: `Search results for: "${query}"`,
+        blocks
+      });
+    } catch (error) {
+      logger.error('❌ Failed to send search results to Slack:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Format search results as Slack blocks
+   */
+  formatSearchResultsBlocks(query, results) {
+    const blocks = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Search results for:* "${query}"`
+        }
+      },
+      {
+        type: 'divider'
+      }
+    ];
+
+    results.slice(0, 5).forEach((result, index) => {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*${index + 1}.* ${result.payload.text.substring(0, 200)}...`
+        },
+        fields: [
+          {
+            type: 'mrkdwn',
+            text: `*Source:* ${result.payload.sourceType}`
+          },
+          {
+            type: 'mrkdwn',
+            text: `*Score:* ${(result.score * 100).toFixed(1)}%`
+          }
+        ]
+      });
+    });
+
+    return blocks;
+  }
+
+  /**
+   * Setup Slack Events API subscription
+   */
+  async setupEventsSubscription(config) {
+    try {
+      const { userId, teamId, channels, events } = config;
+      
+      logger.info(`✅ Setup Slack events subscription for team ${teamId}`);
+      return {
+        teamId,
+        channels: channels || [],
+        events: events || ['message', 'file_shared'],
+        userId
+      };
+    } catch (error) {
+      logger.error('❌ Failed to setup Slack events subscription:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Health check method
+   */
   async healthCheck() {
     try {
       if (!this.isInitialized) {
         await this.initialize();
       }
-      
+
       const channels = await this.getChannels();
-      
       return {
         status: 'healthy',
         teamId: this.teamId,
@@ -486,6 +531,24 @@ class SlackService {
       };
     }
   }
+
+  /**
+   * Get service instance for specific user
+   */
+  static async getServiceForUser(userId) {
+    const User = require('../models/mongodb/user.model');
+    const user = await User.findById(userId);
+    
+    if (!user?.oauth?.slack?.token) {
+      throw new Error('Slack not connected for user');
+    }
+
+    const service = new SlackService();
+    await service.initializeClient(user.oauth.slack.token);
+    return service;
+  }
 }
 
-module.exports = new SlackService();
+// Create and export a singleton instance
+const slackService = new SlackService();
+module.exports = slackService;

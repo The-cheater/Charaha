@@ -9,7 +9,10 @@ class VectorService {
       apiKey: process.env.QDRANT_API_KEY,
     });
     
-    this.hf = new HfInference(process.env.HUGGINGFACE_API_KEY);
+    const hfApiKey = process.env.HF_API_KEY
+      || process.env.HUGGINGFACE_API_KEY
+      || process.env.HUGGING_FACE_API_KEY;
+    this.hf = new HfInference(hfApiKey);
     this.collectionName = process.env.QDRANT_COLLECTION_NAME || 'team_knowledge';
     this.embeddingModel = process.env.EMBEDDING_MODEL || 'sentence-transformers/all-MiniLM-L6-v2';
   }
@@ -32,6 +35,40 @@ class VectorService {
       }
     } catch (error) {
       logger.error('Failed to initialize collection:', error);
+      throw error;
+    }
+  }
+
+  async addVectors(points) {
+    try {
+      if (!Array.isArray(points) || points.length === 0) return;
+      await this.client.upsert(this.collectionName, {
+        wait: true,
+        points
+      });
+      logger.info(`Upserted ${points.length} vectors into ${this.collectionName}`);
+    } catch (error) {
+      logger.error('Failed to add vectors:', error);
+      throw error;
+    }
+  }
+
+  async deleteVectors(selector) {
+    try {
+      // selector can be { ids: [...] } or { filter: {...} }
+      await this.client.delete(this.collectionName, selector);
+      logger.info('Deleted vectors with selector:', selector);
+    } catch (error) {
+      logger.error('Failed to delete vectors:', error);
+      throw error;
+    }
+  }
+
+  async getCollectionInfo() {
+    try {
+      return await this.client.getCollection(this.collectionName);
+    } catch (error) {
+      logger.error('Failed to get collection info:', error);
       throw error;
     }
   }
@@ -216,4 +253,4 @@ class VectorService {
   }
 }
 
-module.exports = VectorService;
+module.exports = new VectorService();

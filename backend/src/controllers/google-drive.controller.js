@@ -1,12 +1,12 @@
 const GoogleDriveService = require('../services/google-drive.service');
-const VectorService = require('../services/vector.service');
+const vectorService = require('../services/vector.service');
 const documentProcessor = require('../utils/document-processor');
 const logger = require('../utils/logger');
 
 class GoogleDriveController {
   constructor() {
     this.driveService = new GoogleDriveService();
-    this.vectorService = new VectorService();
+    this.vectorService = vectorService;
   }
 
   /**
