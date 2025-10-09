@@ -1,2 +1,9 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+
+# Environment files - mark as not exportable and not diffable
+backend/.env export-ignore
+backend/.env.* export-ignore
+frontend/.env export-ignore
+frontend/.env.* export-ignore
+**/.*env* export-ignore diff=
