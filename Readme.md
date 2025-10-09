@@ -143,129 +143,71 @@ backend/
 
 ```
 frontend/
-├── app/
-│   ├── layout.tsx                  # Main layout component
-│   ├── layout_old.tsx              # Legacy layout (optional)
-│   ├── globals.css                 # Global styles (Tailwind)
-│   ├── page.tsx                    # Landing page
-│   ├── login/
-│   │   └── page.tsx                # Login page
-│   ├── signup/
-│   │   └── page.tsx                # Signup page
-│   ├── dashboard/
-│   │   └── page.tsx                # User dashboard
-│   ├── profile/
-│   │   └── page.tsx                # User profile
-│   ├── search/
-│   │   ├── page.tsx                # Search main page
-│   │   ├── advanced/
-│   │   │   └── page.tsx            # Advanced search page
-│   │   └── history/
-│   │       └── page.tsx            # Search history page
-│   ├── settings/
-│   │   └── page.tsx                # User settings
-│   ├── sources/
-│   │   ├── page.tsx                # Sources overview
-│   │   ├── add/
-│   │   │   ├── google/
-│   │   │   │   └── page.tsx        # Add Google source
-│   │   │   └── slack/
-│   │   │       └── page.tsx        # Add Slack source
-│   │   ├── slack/
-│   │   │   └── page.tsx            # Slack source details
-│   │   └── [id]/
-│   │       ├── page.tsx            # Source details
-│   │       └── settings/
-│   │           └── page.tsx        # Source settings
-│   ├── analytics/
-│   │   └── page.tsx                # Analytics dashboard
-│   └── test-auth/
-│       └── page.tsx                # Auth test page
+├── app/                              # Next.js 13+ app directory
+│   ├── analytics.tsx                 # Analytics dashboard page
+│   ├── dashboard.tsx                 # Main dashboard page
+│   ├── error.tsx                     # Error boundary page
+│   ├── forgot-password.tsx           # Password recovery page
+│   ├── globals.css                   # Global CSS styles
+│   ├── history.tsx                   # Search history page
+│   ├── layout.tsx                    # Root layout component
+│   ├── loading.tsx                   # Loading UI component
+│   ├── login.tsx                     # Authentication login page
+│   ├── not-found.tsx                 # 404 error page
+│   ├── page.tsx                      # Landing/home page
+│   ├── search.tsx                    # Search interface page
+│   ├── settings.tsx                  # User settings page
+│   ├── signup.tsx                    # User registration page
+│   ├── sources.tsx                   # Data source management page
+│   └── api/                          # API routes (if any)
 │
-├── components/
-│   ├── layout/
-│   │   ├── Header.tsx              # App header
-│   │   ├── Sidebar.tsx             # Sidebar navigation
-│   │   ├── Footer.tsx              # App footer
-│   │   └── ThemeToggle.tsx         # Light/dark mode toggle
-│   ├── auth/
-│   │   ├── LoginForm.tsx           # Login form
-│   │   └── SignupForm.tsx          # Signup form
-│   ├── dashboard/
-│   │   ├── QuickActions.tsx        # Dashboard quick actions
-│   │   ├── RecentActivity.tsx      # Recent activity feed (uses global searchHistory)
-│   │   └── StatsCards.tsx          # Dashboard stats
-│   ├── ingestion/
-│   │   ├── GoogleDriveConnector.tsx# Google Drive connector
-│   │   ├── SlackConnector.tsx      # Slack connector
-│   │   ├── IngestionStatus.tsx     # Ingestion status display
-│   │   └── SourceCard.tsx          # Data source card
-│   ├── search/
-│   │   ├── SearchInput.tsx         # Search bar
-│   │   ├── SearchResults.tsx       # Search results list
-│   │   ├── ResultCard.tsx          # Individual result card
-│   │   ├── SearchStats.tsx         # Search statistics
-│   │   ├── SearchSuggestions.tsx   # Query suggestions
-│   │   ├── SearchHistory.tsx       # Search history
-│   │   ├── AdvancedFilters.tsx     # Advanced search filters
-│   │   └── FilterPanel.tsx         # Filter panel
-│   ├── analytics/
-│   │   ├── SearchStats.tsx         # Analytics search stats
-│   │   ├── SourceStats.tsx         # Source analytics
-│   │   └── SearchStats_old.tsx     # Legacy analytics
-│   ├── landing/
-│   │   ├── Hero.tsx                # Landing hero section
-│   │   ├── Features.tsx            # Feature highlights
-│   │   ├── Analytics.tsx           # Landing analytics
-│   │   ├── Testimonials.tsx        # User testimonials
-│   │   └── CTA.tsx                 # Call to action
-│   ├── providers/
-│   │   └── theme-provider.tsx      # Theme context provider
-│   ├── ui/
-│   │   ├── button.tsx              # UI button
-│   │   ├── card.tsx                # UI card
-│   │   ├── input.tsx               # UI input
-│   │   ├── label.tsx               # UI label
-│   │   ├── select.tsx              # UI select
-│   │   ├── switch.tsx              # UI switch
-│   │   ├── tabs.tsx                # UI tabs
-│   │   ├── badge.tsx               # UI badge
-│   │   ├── avatar.tsx              # UI avatar
-│   │   ├── splite.tsx              # UI split element
-│   │   ├── spotlight.tsx           # Spotlight effect
-│   │   ├── ResultCard.tsx          # UI result card
-│   │   └── text-hover-effect.tsx   # Text hover effect
-│   └── ConnectionStatus.tsx        # API connection status
+├── components/                       # Reusable React components
+│   ├── ui/                           # UI component library
+│   │   ├── button.tsx                # Button component
+│   │   ├── card.tsx                  # Card component
+│   │   ├── badge.tsx                 # Badge component
+│   │   └── [other UI components]     # Additional UI components
+│   ├── Footer.tsx                    # Application footer
+│   ├── Header.tsx                    # Application header
+│   ├── LoadingSpinner.tsx            # Loading spinner component
+│   ├── LoginForm.tsx                 # Login form component
+│   ├── SearchBar.tsx                 # Search input component
+│   ├── SearchResults.tsx             # Search results display
+│   ├── Sidebar.tsx                   # Navigation sidebar
+│   ├── SignupForm.tsx                # Registration form component
+│   ├── SourceCard.tsx                # Data source card component
+│   ├── StatsCard.tsx                 # Statistics display component
+│   └── ThemeToggle.tsx               # Dark/light theme toggle
 │
-├── hooks/
-│   ├── useAuth.tsx                 # Auth hook (React context/provider, must be .tsx)
-│   ├── useChat.ts                  # Chat state hook
-│   └── useSearch.ts                # Search state hook (now returns global searchHistory)
+├── lib/                              # Utility libraries and configurations
+│   ├── api.ts                        # API client utilities
+│   ├── authStore.ts                  # Authentication state management
+│   ├── constants.ts                  # Application constants
+│   └── [other utilities]             # Additional utility files
 │
-├── lib/
-│   ├── api.ts                      # API utilities
-│   ├── utils.ts                    # General utilities
-│   └── validations.ts              # Validation helpers
+├── public/                           # Static assets
+│   ├── fonts/                        # Font files
+│   ├── images/                       # Image assets
+│   └── [other static files]          # Additional static assets
 │
-├── types/
-│   └── index.ts                    # TypeScript types
+├── types/                            # TypeScript type definitions
+│   ├── next-auth.d.ts                # NextAuth.js type definitions
+│   ├── index.ts                      # Main type definitions
+│   └── [other type files]            # Additional type definitions
 │
-├── public/
-│   ├── anal.png                    # Analytics image
-│   ├── icon.ico                    # Favicon
-│   └── Screenshot 2025-09-15 234442.png # Landing screenshot
-│
-├── components.json                 # Component registry
-├── next.config.js                  # Next.js config
-├── postcss.config.js               # PostCSS config
-├── tailwind.config.js              # Tailwind CSS config
-├── tsconfig.json                   # TypeScript config
-├── next-env.d.ts                   # Next.js env types
-├── package.json                    # Dependencies & scripts
-├── package-lock.json               # Lockfile
-└── node_modules/                   # Dependencies
+├── .env.example                      # Environment variables template
+│├── .env.local                       # Local environment variables
+│├── .gitignore                        # Git ignore patterns
+│├── .next/                           # Next.js build output (generated)
+│├── node_modules/                    # Dependencies (generated)
+│├── next.config.js                   # Next.js configuration
+│├── next-env.d.ts                    # Next.js TypeScript declarations
+│├── package.json                     # Project dependencies and scripts
+│├── package-lock.json                # Dependency lock file
+│├── postcss.config.js                # PostCSS configuration
+│├── tailwind.config.ts               # Tailwind CSS configuration
+│└── tsconfig.json                     # TypeScript configuration
 ```
-
 
 ***
 
